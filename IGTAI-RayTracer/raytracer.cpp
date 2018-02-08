@@ -12,10 +12,22 @@
 const float acne_eps = 1e-4;
 
 bool intersectPlane(Ray *ray, Intersection *intersection, Object *obj) {
-
+  bool res = false;
   //! \todo : compute intersection of the ray and the plane object
-  return false;
-
+  //produit scalaire
+  float d_n = dot(ray->orig, obj->geom.plane.normal);
+  //on verifie si dir . n != 0
+  if (d_n != 0) {
+    float t = (ray->orig*obj->geom.plane.normal+obj->geom.plane.dist)/
+              (ray->dir)*obj->geom.plane.normal);
+    if (ray->tmin < t && ray->tmax > t) { // on est dans l'intervalle
+      intersection->position = ray->orig+t*obj->geom.plane.dist;
+      intersection->mat = &(obj->mat);
+      intersection->normal = obj->geom.plane.normal;
+      res = true;
+    }
+  }
+  return res;
 }
 
 bool intersectSphere(Ray *ray, Intersection *intersection, Object *obj) {
@@ -98,7 +110,7 @@ color3 RDM_bsdf_s(float LdotH, float NdotH, float VdotH, float LdotN, float Vdot
   //!\todo specular term of the bsdf, using D = RDB_Beckmann, F = RDM_Fresnel, G = RDM_Smith
   return color3(.5f);
 
-  
+
 }
 // diffuse term of the cook torrance bsdf
 color3 RDM_bsdf_d(Material *m) {
@@ -132,14 +144,14 @@ color3 shade(vec3 n, vec3 v, vec3 l, color3 lc, Material *mat ){
 
   //! \todo compute bsdf, return the shaded color taking into account the
   //! lightcolor
-  
+
 
   return ret;
-	    
+
 }
 
 //! if tree is not null, use intersectKdTree to compute the intersection instead of intersect scene
-color3 trace_ray(Scene * scene, Ray *ray, KdTree *tree) {  
+color3 trace_ray(Scene * scene, Ray *ray, KdTree *tree) {
   color3 ret = color3(0,0,0);
   Intersection intersection;
 
@@ -147,7 +159,7 @@ color3 trace_ray(Scene * scene, Ray *ray, KdTree *tree) {
 
 
 
-  
+
 
   return ret;
 }
@@ -156,21 +168,21 @@ void renderImage(Image *img, Scene *scene) {
 
   //! This function is already operational, you might modify it for antialiasing and kdtree initializaion
   float aspect = 1.f/scene->cam.aspect;
-    
+
   KdTree *tree =  NULL;
 
 
   //! \todo initialize KdTree
 
   float delta_y = 1.f / (img->height * 0.5f); //! one pixel size
-  vec3 dy = delta_y * aspect * scene->cam.ydir; //! one pixel step 
+  vec3 dy = delta_y * aspect * scene->cam.ydir; //! one pixel step
   vec3 ray_delta_y = (0.5f - img->height * 0.5f) / (img->height * 0.5f) * aspect * scene->cam.ydir;
 
   float delta_x = 1.f / (img->width * 0.5f);
   vec3 dx = delta_x * scene->cam.xdir;
   vec3 ray_delta_x = (0.5f - img->width * 0.5f) / (img->width * 0.5f) *scene->cam.xdir;
-  
-    
+
+
   for(size_t j=0; j<img->height; j++) {
     if(j!=0) printf("\033[A\r");
     float progress = (float)j/img->height*100.f;
