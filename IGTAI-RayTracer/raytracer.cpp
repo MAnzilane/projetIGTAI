@@ -18,31 +18,75 @@ bool intersectPlane(Ray *ray, Intersection *intersection, Object *obj) {
   float d_n = dot(ray->orig, obj->geom.plane.normal);
   //on verifie si dir . n != 0
   if (d_n != 0) {
-    float t = (ray->orig*obj->geom.plane.normal+obj->geom.plane.dist)/
-              (ray->dir)*obj->geom.plane.normal);
+    float t = (dot(ray->orig, obj->geom.plane.normal)+obj->geom.plane.dist)/
+              (dot(ray->dir, obj->geom.plane.normal));
     if (ray->tmin < t && ray->tmax > t) { // on est dans l'intervalle
       intersection->position = ray->orig+t*obj->geom.plane.dist;
       intersection->mat = &(obj->mat);
       intersection->normal = obj->geom.plane.normal;
+      ray->tmax = t; //mise à jour du tmax pour evité l'effet de bord
       res = true;
     }
   }
   return res;
 }
 
+//resoution d'equation du second degré
+bool solver(float a, float b, float c, float*t) {
+  bool res = false;
+  //delta
+  float delta = b*b - 4*a*c;
+  if (delta > 0) {
+    float s1 = -b-sqrt(delta)/2*a;
+    if (s1 > 0) {
+      *t = s1;
+    }else {
+      *t = -b+sqrt(delta)/2*a;
+    }
+    res = true;
+  }
+  return res;
+}
+
 bool intersectSphere(Ray *ray, Intersection *intersection, Object *obj) {
-
+  bool res = false;
+  float t = 0.0;
     //! \todo : compute intersection of the ray and the sphere object
-
-  return false;
+  float a = 1.0;
+  float b = 2*(dot(ray->dir,(ray->orig - obj->geom.sphere.center)));
+  float c = (dot((ray->orig - obj->geom.sphere.center),
+            (ray->orig - obj->geom.sphere.center)) -
+            (obj->geom.sphere.radius)*obj->geom.sphere.radius);
+  res = solver(a, b, c, &t);
+  if (res) { //on cherche si on a une intersection
+    if(ray->tmin < t && ray->tmax > t) {
+      intersection->position = ray->orig+t*obj->geom.sphere.radius;
+      intersection->mat = &(obj->mat);
+      intersection->normal = normalize(intersection->position-obj->geom.sphere.radius);
+      ray->tmax = t; //mise à jour du tmax pour evité l'effet de bord
+    }else {
+      res = false;
+    }
+  }
+  return res;
 }
 
 bool intersectScene(const Scene *scene, Ray *ray, Intersection *intersection) {
   bool hasIntersection = false;
   size_t objectCount = scene->objects.size();
-
+  for ( size_t i=0; i<objectCount; i++) {
+    Etype type = scene->objects[i]->geom.type;
+    if (type == PLANE) {
+      if (intersectPlane(ray, intersection, scene->objects[i])) {
+        hasIntersection = true;
+      }
+    }else if (type == SPHERE) {
+      if (intersectSphere(ray, intersection, scene->objects[i])) {
+        hasIntersection = true;
+      }
+    }
+  }
   //!\todo loop on each object of the scene to compute intersection
-
   return hasIntersection;
 }
 
