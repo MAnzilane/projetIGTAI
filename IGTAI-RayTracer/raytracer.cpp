@@ -221,8 +221,16 @@ color3 trace_ray(Scene * scene, Ray *ray, KdTree *tree) {
     for ( size_t i=0; i<lightCount; i++) {
       lgt = scene->lights[i];
       l = normalize(p - lgt->position);
+      Ray newRay;
+      newRay.orig = p+acne_eps*(-l);
+      newRay.dir = -l;
+      newRay.tmin = 0; // le min est à 0
+      newRay.tmax = (lgt->position.x - p.x)/(-l).x; //nouveau max pour le rayon
       lc = lgt->color;
-      ret += shade(n, v, l, lc, intersection.mat);
+      Intersection interOmbre;
+      if (!intersectScene(scene, &newRay, &interOmbre)) {
+        ret += shade(n, v, l, lc, intersection.mat);
+      }
     }
   }else {
     ret = scene->skyColor;
