@@ -5,7 +5,7 @@ TARGETS=mrt unit-test
 all: $(TARGETS)
 
 clean:
-	@rm -f *.o ./lodepng-master/lodepng.o *~ $(TARGETS) *.d
+	@rm -f *.o ./lodepng-master/lodepng.o *~ $(TARGETS) *.d ./*.png
 
 CC=g++
 CFLAGS=-Wall -std=c++11 -g -I./glm-0.9.8.4/glm/ -fopenmp -I./lodepng-master/ -O3
@@ -17,7 +17,7 @@ OBJ=main.o
 %.o: %.cpp
 	$(CC) -c $(CFLAGS) $*.cpp -o $*.o
 
-%.d: %.cpp        
+%.d: %.cpp
 	@echo “make $@“
 	@set -e; rm -f $@; \
 	$(CC) -M $(CFLAGS) $< > $@.$$$$; \

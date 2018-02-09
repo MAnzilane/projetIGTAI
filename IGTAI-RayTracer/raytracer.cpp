@@ -13,17 +13,20 @@ const float acne_eps = 1e-4;
 
 bool intersectPlane(Ray *ray, Intersection *intersection, Object *obj) {
   bool res = false;
+  vec3 O = ray->orig;
+  vec3 d = ray->dir;
+  vec3 n = obj->geom.plane.normal;
+  float dist = obj->geom.plane.dist;
   //! \todo : compute intersection of the ray and the plane object
   //produit scalaire
-  float d_n = dot(ray->orig, obj->geom.plane.normal);
+  float d_n = dot(d, n);
   //on verifie si dir . n != 0
   if (d_n != 0) {
-    float t = (dot(ray->orig, obj->geom.plane.normal)+obj->geom.plane.dist)/
-              (dot(ray->dir, obj->geom.plane.normal));
+    float t = -((dot(O, n)+ dist)/d_n);
     if (ray->tmin < t && ray->tmax > t) { // on est dans l'intervalle
-      intersection->position = ray->orig+t*obj->geom.plane.dist;
+      intersection->position = rayAt(*ray, t); //ray->orig+t*obj->geom.plane.dist;
       intersection->mat = &(obj->mat);
-      intersection->normal = obj->geom.plane.normal;
+      intersection->normal = n;
       ray->tmax = t; //mise à jour du tmax pour evité l'effet de bord
       res = true;
     }
@@ -37,7 +40,7 @@ bool solver(float a, float b, float c, float*t) {
   //delta
   float delta = b*b - 4*a*c;
   if (delta > 0) {
-    float s1 = -b-sqrt(delta)/2*a;
+    float s1 = (-b-sqrt(delta))/(2*a);
     if (s1 > 0) {
       *t = s1;
     }else {
@@ -51,18 +54,21 @@ bool solver(float a, float b, float c, float*t) {
 bool intersectSphere(Ray *ray, Intersection *intersection, Object *obj) {
   bool res = false;
   float t = 0.0;
+  vec3 O = ray->orig;
+  vec3 d = ray->dir;
+  vec3 C = obj->geom.sphere.center;
+  float R = obj->geom.sphere.radius;
     //! \todo : compute intersection of the ray and the sphere object
   float a = 1.0;
-  float b = 2*(dot(ray->dir,(ray->orig - obj->geom.sphere.center)));
-  float c = (dot((ray->orig - obj->geom.sphere.center),
-            (ray->orig - obj->geom.sphere.center)) -
-            (obj->geom.sphere.radius)*obj->geom.sphere.radius);
+  float b = 2*(dot(d, (O - C)));
+  float c = (dot((O- C), (O - C)) - (R*R));
   res = solver(a, b, c, &t);
   if (res) { //on cherche si on a une intersection
     if(ray->tmin < t && ray->tmax > t) {
-      intersection->position = ray->orig+t*obj->geom.sphere.radius;
+      point3 p = rayAt(*ray, t);
+      intersection->position = p; //ray->orig+t*ray->dir;
       intersection->mat = &(obj->mat);
-      intersection->normal = normalize(intersection->position-obj->geom.sphere.radius);
+      intersection->normal = normalize(p-C);
       ray->tmax = t; //mise à jour du tmax pour evité l'effet de bord
     }else {
       res = false;
@@ -184,12 +190,15 @@ color3 RDM_bsdf(float LdotH, float NdotH, float VdotH, float LdotN, float VdotN,
 /* --------------------------------------------------------------------------- */
 
 color3 shade(vec3 n, vec3 v, vec3 l, color3 lc, Material *mat ){
-  color3 ret = color3(0.f);
-
+  //color3 ret = color3(0.f);
+  color3 ret = color3(0,0,0);
   //! \todo compute bsdf, return the shaded color taking into account the
   //! lightcolor
-
-
+  float cos = dot(l, n);
+  float pi = 3.1415926f;
+  if (cos > 0) {
+    ret = (mat->diffuseColor*cos*lc) / pi;
+  }
   return ret;
 
 }
@@ -198,7 +207,26 @@ color3 shade(vec3 n, vec3 v, vec3 l, color3 lc, Material *mat ){
 color3 trace_ray(Scene * scene, Ray *ray, KdTree *tree) {
   color3 ret = color3(0,0,0);
   Intersection intersection;
+  if (intersectScene(scene, ray, &intersection)) {
+    //vec3 c = 0.5f*(intersection.normal)+0.5f;
+    //ret = color3(c.x, c.y, c.z); //première coloration
+    vec3 l;
+    Light * lgt;
+    vec3 v = -(ray->dir);
+    color3 lc;
+    vec3 n = -intersection.normal;
+    point3 p = intersection.position;
 
+    size_t lightCount = scene->lights.size();
+    for ( size_t i=0; i<lightCount; i++) {
+      lgt = scene->lights[i];
+      l = normalize(p - lgt->position);
+      lc = lgt->color;
+      ret += shade(n, v, l, lc, intersection.mat);
+    }
+  }else {
+    ret = scene->skyColor;
+  }
 
 
 
