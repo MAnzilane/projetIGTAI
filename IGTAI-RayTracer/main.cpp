@@ -7,8 +7,8 @@
 #include "raytracer.h"
 #include "image.h"
 
-#define WIDTH 8000
-#define HEIGHT 6000
+#define WIDTH 400
+#define HEIGHT 300
 
 /* nickel :
  mat.diffuseColor = color3(0.014, 0.012, 0.012);
@@ -106,7 +106,7 @@ Scene * initScene0() {
 
     mat.diffuseColor  = color3(0.6f);
     addObject(scene, initPlane(vec3(0,1,0), 0, mat));
-    
+
     addLight(scene, initLight(point3(10, 10,10), color3(1,1,1)));
     addLight(scene, initLight(point3(4, 10,-2), color3(1,1,1)));
 
@@ -168,7 +168,7 @@ Scene *initScene2() {
     mat.specularColor  = color3(1.0, 0.882, 0.786);
     mat.IOR = 2.4449;
     mat.roughness = 0.0681;
-   
+
 
     mat.diffuseColor = color3(0.05,0.05,0.05);
     mat.specularColor  = color3(0.95);
@@ -193,7 +193,7 @@ Scene *initScene2() {
     return scene;
 
 
-    
+
 }
 
 Scene* initScene3(){
@@ -205,32 +205,32 @@ Scene* initScene3(){
     mat.specularColor  = color3(1.0, 0.992, 0.98);
     mat.IOR = 1.1382;
     mat.roughness = 0.0886;
- 
+
     addLight(scene, initLight(point3(0, 1.7, 1), .5f*color3(3,3,3)));
     addLight(scene, initLight(point3(3, 2, 3),   .5f*color3(4, 4, 4)));
     addLight(scene, initLight(point3(4,3,-1),    .5f*color3(5, 5, 5)));
 
 
 
-    
+
     mat.diffuseColor = color3(0.014, 0.012, 0.012);
     mat.specularColor  = color3(0.7, 0.882, 0.786);
     mat.IOR = 6;
     mat.roughness = 0.0181;
     addObject( scene, initSphere(point3(0,0.1,0),.3, mat));
-    
+
     mat.diffuseColor = color3(0.26, 0.036, 0.014);
     mat.specularColor  = color3(1.0, 0.852, 1.172);
     mat.IOR = 1.3771;
     mat.roughness = 0.01589;
     addObject( scene, initSphere(point3(1,-.05,0),.15, mat));
-  
+
     mat.diffuseColor = color3(0.014, 0.012, 0.012);
     mat.specularColor  = color3(0.7, 0.882, 0.786);
     mat.IOR = 3;
     mat.roughness = 0.00181;
     addObject( scene, initSphere(point3(3,0.05,2),.25, mat));
-    
+
     mat.diffuseColor = color3(0.46, 0.136, 0.114);
     mat.specularColor  = color3(0.8, 0.852, 0.8172);
     mat.IOR = 1.5771;
@@ -242,7 +242,7 @@ Scene* initScene3(){
     mat.IOR = 1.3051;
     mat.roughness = 0.567;
     addObject( scene, initSphere(point3(1.9,0.05,2.2),.25, mat));
-   
+
     mat.diffuseColor = color3(0.012,0.036,0.406);
     mat.specularColor  = color3(1.0, 0.965, 1.07);
     mat.IOR = 1.1153;
@@ -255,14 +255,14 @@ Scene* initScene3(){
     mat.IOR = 1.382;
     mat.roughness = 0.05886;
     addObject(scene, initPlane(vec3(0,1,0),0.2, mat));
-  
+
     mat.diffuseColor = color3(.5,0.09,.07);
     mat.specularColor = color3(.2,.2,.1);
     mat.IOR = 1.8382;
     mat.roughness = 0.886;
     addObject(scene, initPlane(vec3(1, 0.0, -1.0), 2, mat));
 
-  
+
     mat.diffuseColor = color3(0.1,0.3,.05);
     mat.specularColor = color3(.5,.5,.5);
     mat.IOR = 1.9382;
@@ -305,7 +305,7 @@ int main(int argc, char *argv[]) {
     case  3 :
         scene = initScene3();
         break;
-	
+
     default :
         scene = initScene0();
         break;

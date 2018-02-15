@@ -12,11 +12,11 @@
 #include "expected.h"
 
 void validTest(const char *desc, bool value, bool expected){
-  printf("%s \t: [%s]\n", desc, value == expected ? "OK":"fail"); 
+  printf("%s \t: [%s]\n", desc, value == expected ? "OK":"fail");
 }
 
 int main(void){
-  
+
   Material dummy;
   Object *plane1 = initPlane(vec3(0,0,1), 0, dummy);
   Object *plane2 = initPlane(vec3(1,1,1), 2, dummy);
@@ -59,7 +59,7 @@ int main(void){
   for(int i=0; i<fresnelExpectedCount; i++){
     fresnel &= abs(fresnelExpected[i].res - RDM_Fresnel(fresnelExpected[i].LdotH, fresnelExpected[i].extIOR,fresnelExpected[i].intIOR))<0.0001f;
   }
-  printf("RDM_Fresnel \t: [%s]\n",  fresnel ? "OK":"fail"); 
+  printf("RDM_Fresnel \t: [%s]\n",  fresnel ? "OK":"fail");
 
   return 0;
 }

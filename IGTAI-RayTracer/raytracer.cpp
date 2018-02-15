@@ -10,6 +10,7 @@
 /// acne_eps is a small constant used to prevent acne when computing intersection
 //  or boucing (add this amount to the position before casting a new ray !
 const float acne_eps = 1e-4;
+const float pi = 3.1415926f;
 
 bool intersectPlane(Ray *ray, Intersection *intersection, Object *obj) {
   bool res = false;
@@ -106,19 +107,34 @@ bool intersectScene(const Scene *scene, Ray *ray, Intersection *intersection) {
  * NdotH : Norm . Half
  */
 float RDM_Beckmann(float NdotH, float alpha) {
-
-
+  float cos2 = NdotH*NdotH;
+  float alpha2 = alpha*alpha;
+  float tan2 = (1-cos2) / cos2;
+  float cos4 = cos2*cos2;
+  float D = exp(-tan2/alpha2)/(pi*alpha2*cos4);
   //! \todo compute Beckmann normal distribution
-  return 0.5f;
-
+  //return 0.5f;
+  return D;
 }
 
 // Fresnel term computation. Implantation of the exact computation. we can use the Schlick approximation
 // LdotH : Light . Half
 float RDM_Fresnel(float LdotH, float extIOR, float intIOR) {
-
+  float cos2Oi = LdotH*LdotH;
+  float sin2Ot = ((extIOR/intIOR)*(extIOR/intIOR))*(1-cos2Oi);
+  if (sin2Ot > 1) {
+    return 1;
+  }
+  //assert(sin2Ot<=1 && sin2Ot>=-1);
+  float cosOt = sqrt(1-sin2Ot);
+  float Rs = ((extIOR*LdotH - intIOR*cosOt)*(extIOR*LdotH - intIOR*cosOt)) /
+             ((extIOR*LdotH + intIOR*cosOt)*(extIOR*LdotH + intIOR*cosOt));
+  float Rp = ((extIOR*cosOt - intIOR*LdotH)*(extIOR*cosOt - intIOR*LdotH)) /
+             ((extIOR*cosOt + intIOR*LdotH)*(extIOR*cosOt + intIOR*LdotH));
+  float F = (Rs+Rp)/2;
   //! \todo compute Fresnel term
-  return 0.5f;
+  // return 0.5f;
+  return F;
 
 }
 
@@ -131,10 +147,22 @@ float RDM_chiplus(float c) {
 // DdotH : Dir . Half
 // HdotN : Half . Norm
 float RDM_G1(float DdotH, float DdotN, float alpha) {
-
+  float cosOx = DdotN; // car c'est l'opposer de l'autre vecteur un doute a verifier
+  float cos2Ox = cosOx*cosOx;
+  float tanOx = sqrt(1-cos2Ox)/cos2Ox;
+  float b = 1/(alpha*tanOx);
+  float k = DdotH/DdotN;
+  float G1 = 0.0;
+  if (k > 0 && b < 1.6) {
+    G1 = (3.535 * b + 2.181 * b * b) / (1 + 2.276 * b + 2.577 * b * b);
+  }else {
+    if (k > 0) {
+      G1 = 1.0;
+    }
+  }
   //!\todo compute G1 term of the Smith fonction
-  return 0.5f;
-
+  //return 0.5f;
+  return G1;
 }
 
 // LdotH : Light . Half
@@ -142,9 +170,12 @@ float RDM_G1(float DdotH, float DdotN, float alpha) {
 // VdotH : View . Half
 // VdotN : View . Norm
 float RDM_Smith(float LdotH, float LdotN, float VdotH, float VdotN, float alpha) {
-
+  float G = 0.5f;
   //!\todo the Smith fonction
-  return 0.5f;
+  float G1l = RDM_G1(LdotH, LdotN, alpha);
+  float G1v = RDM_G1(VdotH, VdotN, alpha);
+  G = G1l*G1v;
+  return G;
 
 
 }
@@ -156,18 +187,23 @@ float RDM_Smith(float LdotH, float LdotN, float VdotH, float VdotN, float alpha)
 // LdotN : Light . Norm
 // VdotN : View . Norm
 color3 RDM_bsdf_s(float LdotH, float NdotH, float VdotH, float LdotN, float VdotN, Material *m) {
-
+  float alpha = m->roughness;
+  color3 Ks = m->specularColor;
+  float extIOR = 1; // on part du principe que c'est l'aire
+  float intIOR = m->IOR;
+  float D = RDM_Beckmann(NdotH, alpha);
+  float F = RDM_Fresnel(LdotH, extIOR, intIOR);
+  float G = RDM_Smith(LdotH, LdotN, VdotH, VdotN, alpha);
+  color3 BSDF_s = Ks * ((D * F * G) / (4 * LdotN * VdotN));
+  return BSDF_s;
   //!\todo specular term of the bsdf, using D = RDB_Beckmann, F = RDM_Fresnel, G = RDM_Smith
-  return color3(.5f);
-
-
+  // return color3(.5f);
 }
 // diffuse term of the cook torrance bsdf
 color3 RDM_bsdf_d(Material *m) {
-
+  return m->diffuseColor/pi;
   //!\todo compute diffuse component of the bsdf
-  return color3(.5f);
-
+  //return color3(.5f);
 }
 
 // The full evaluation of bsdf(wi, wo) * cos (thetai)
@@ -178,9 +214,10 @@ color3 RDM_bsdf_d(Material *m) {
 // VdtoN : View . Norm
 // compute bsdf * cos(Oi)
 color3 RDM_bsdf(float LdotH, float NdotH, float VdotH, float LdotN, float VdotN, Material *m) {
-
+  color3 BSDF = (RDM_bsdf_d(m) + RDM_bsdf_s(LdotH, NdotH, VdotH, LdotN, VdotN, m));
   //! \todo compute bsdf diffuse and specular term
-  return color3(0.f);
+  //return color3(0.f);
+  return BSDF;
 
 }
 
@@ -190,15 +227,21 @@ color3 RDM_bsdf(float LdotH, float NdotH, float VdotH, float LdotN, float VdotN,
 /* --------------------------------------------------------------------------- */
 
 color3 shade(vec3 n, vec3 v, vec3 l, color3 lc, Material *mat ){
-  //color3 ret = color3(0.f);
-  color3 ret = color3(0,0,0);
+  color3 ret = color3(0.f);
+  //color3 ret = color3(0,0,0);
+  float LdotN = dot(l, n);
+  if (LdotN > 0) {
+    vec3 h = normalize(v+l); // je ne suis   bsolument pas sur : half-vector
+    float LdotH = dot(l, h);
+    float NdotH = dot(n, h);
+    float VdotH = dot(v, h);
+    float VdotN = dot(v, n);
+    ret = lc*RDM_bsdf(LdotH, NdotH, VdotH, LdotN, VdotN, mat)*LdotN;
+    // ret = (mat->diffuseColor*LdotN*lc) / pi;
+  }
+
   //! \todo compute bsdf, return the shaded color taking into account the
   //! lightcolor
-  float cos = dot(l, n);
-  float pi = 3.1415926f;
-  if (cos > 0) {
-    ret = (mat->diffuseColor*cos*lc) / pi;
-  }
   return ret;
 
 }
@@ -214,34 +257,40 @@ color3 trace_ray(Scene * scene, Ray *ray, KdTree *tree) {
     Light * lgt;
     vec3 v = -(ray->dir);
     color3 lc;
-    vec3 n = -intersection.normal;
+    vec3 n = intersection.normal; //pourquoi essaie ici
     point3 p = intersection.position;
 
     size_t lightCount = scene->lights.size();
+    Ray newRay;
     for ( size_t i=0; i<lightCount; i++) {
       lgt = scene->lights[i];
-      l = normalize(p - lgt->position);
-      Ray newRay;
-      newRay.orig = p+acne_eps*(-l);
-      newRay.dir = -l;
+      l = normalize(lgt->position-p);
+      newRay.orig =  p+acne_eps*(l);
+      newRay.dir = l;
       newRay.tmin = 0; // le min est à 0
-      newRay.tmax = (lgt->position.x - p.x)/(-l).x; //nouveau max pour le rayon
+      newRay.tmax = (lgt->position.x - p.x)/(newRay.dir).x; //nouveau max pour le rayon
       lc = lgt->color;
       Intersection interOmbre;
       if (!intersectScene(scene, &newRay, &interOmbre)) {
+        //v = -newRay.dir;
         ret += shade(n, v, l, lc, intersection.mat);
       }
     }
+    vec3 rr = reflect(-ray->dir, intersection.normal);
+    ray->dir = rr;
+    ray->depth +=1;
+    if (ray->depth == 10) {
+      printf("rebon %d\n", ray->depth);
+      return scene->skyColor;
+    }
+    vec3 cr = trace_ray(scene, ray, tree);
+    vec3 h = normalize(v+ray->dir);
+    float LdotH = dot(ray->dir, h);
+    return ret+RDM_Fresnel(LdotH, 1.f, intersection.mat->IOR)*cr;
+    //printf("rebon %d\n", ray->depth);
   }else {
-    ret = scene->skyColor;
+    return scene->skyColor;
   }
-
-
-
-
-
-
-  return ret;
 }
 
 void renderImage(Image *img, Scene *scene) {
