@@ -6,6 +6,7 @@
 #include "kdtree.h"
 #include <stdio.h>
 
+// thibault.lejemble@irit.fr
 
 /// acne_eps is a small constant used to prevent acne when computing intersection
 //  or boucing (add this amount to the position before casting a new ray !
@@ -254,14 +255,16 @@ color3 trace_ray(Scene * scene, Ray *ray, KdTree *tree) {
     //vec3 c = 0.5f*(intersection.normal)+0.5f;
     //ret = color3(c.x, c.y, c.z); //première coloration
     vec3 l;
+    vec3 rr;
+    vec3 cr;
     Light * lgt;
     vec3 v = -(ray->dir);
     color3 lc;
     vec3 n = intersection.normal; //pourquoi essaie ici
     point3 p = intersection.position;
+    Ray newRay;
 
     size_t lightCount = scene->lights.size();
-    Ray newRay;
     for ( size_t i=0; i<lightCount; i++) {
       lgt = scene->lights[i];
       l = normalize(lgt->position-p);
@@ -272,22 +275,34 @@ color3 trace_ray(Scene * scene, Ray *ray, KdTree *tree) {
       lc = lgt->color;
       Intersection interOmbre;
       if (!intersectScene(scene, &newRay, &interOmbre)) {
-        //v = -newRay.dir;
         ret += shade(n, v, l, lc, intersection.mat);
       }
     }
-    vec3 rr = reflect(-ray->dir, intersection.normal);
-    ray->dir = rr;
-    ray->depth +=1;
-    if (ray->depth == 10) {
-      printf("rebon %d\n", ray->depth);
-      return scene->skyColor;
+
+    if (ray->depth < 4) {
+      Ray refRay;
+      rr = normalize(reflect(ray->dir, intersection.normal)); // peut etre inverser les parametre pour voir
+      //calcul du rayon secondaire
+      vec3 newOrig = p+acne_eps*(rr);
+      rayInit(&refRay, newOrig, rr);
+      refRay.depth +=1; //on incremente le nombre de rebon
+      cr = trace_ray(scene, &refRay, tree);
+      if (cr.x > 1) {
+        cr.x = 1;
+      }
+      if (cr.y > 1) {
+        cr.y = 1;
+      }
+      if (cr.z > 1) {
+        cr.z = 1;
+      }
+      vec3 h = normalize(v + rr);
+      l = rr;//rr
+      float LdotH = dot(l, h);
+      return ret+RDM_Fresnel(LdotH, 1.f, intersection.mat->IOR)*cr;
+    }else {
+      return color3(0,0,0);
     }
-    vec3 cr = trace_ray(scene, ray, tree);
-    vec3 h = normalize(v+ray->dir);
-    float LdotH = dot(ray->dir, h);
-    return ret+RDM_Fresnel(LdotH, 1.f, intersection.mat->IOR)*cr;
-    //printf("rebon %d\n", ray->depth);
   }else {
     return scene->skyColor;
   }
@@ -328,7 +343,6 @@ void renderImage(Image *img, Scene *scene) {
       Ray rx;
       rayInit(&rx, scene->cam.position, normalize(ray_dir));
       *ptr = trace_ray(scene, &rx, tree);
-
     }
   }
 }
