@@ -338,11 +338,34 @@ void renderImage(Image *img, Scene *scene) {
 #pragma omp parallel for
     for(size_t i=0; i<img->width; i++) {
       color3 *ptr = getPixelPtr(img, i,j);
-      vec3 ray_dir = scene->cam.center + ray_delta_x + ray_delta_y + float(i)*dx + float(j)*dy;
+      // vec3 ray_dir = scene->cam.center + ray_delta_x + ray_delta_y + float(i)*dx + float(j)*dy;
+      
+      vec3 ray_dir1 = scene->cam.center + ray_delta_x + ray_delta_y + float(i+0.3f)*dx + float(j)*dy;
+      vec3 ray_dir2 = scene->cam.center + ray_delta_x + ray_delta_y + float(i+0.1f)*dx + float(j)*dy;
+      vec3 ray_dir3 = scene->cam.center + ray_delta_x + ray_delta_y + float(i-0.1f)*dx + float(j)*dy;
+      vec3 ray_dir4 = scene->cam.center + ray_delta_x + ray_delta_y + float(i-0.3f)*dx + float(j)*dy;
 
-      Ray rx;
-      rayInit(&rx, scene->cam.position, normalize(ray_dir));
-      *ptr = trace_ray(scene, &rx, tree);
+      Ray rx1, rx2, rx3, rx4;
+
+      // Ray rx;
+      // rayInit(&rx, scene->cam.position, normalize(ray_dir));
+
+      rayInit(&rx1, scene->cam.position, normalize(ray_dir1));
+      rayInit(&rx2, scene->cam.position, normalize(ray_dir2));
+      rayInit(&rx3, scene->cam.position, normalize(ray_dir3));
+      rayInit(&rx4, scene->cam.position, normalize(ray_dir4));
+
+      // *ptr += trace_ray(scene, &rx, tree);
+
+      // // color3 ptr1, ptr2, ptr3, p;
+      *ptr = trace_ray(scene, &rx1, tree);
+      *ptr += trace_ray(scene, &rx2, tree);
+      *ptr += trace_ray(scene, &rx3, tree);
+      *ptr += trace_ray(scene, &rx4, tree);
+      *ptr = color3((*ptr).x/4, (*ptr).y/4, (*ptr).z/4);
+      // char c = 0;
+      // printf("x = %f y = %f z = %f\n", (*ptr).x, (*ptr).y, (*ptr).z);
+      // scanf("%c", &c);
     }
   }
 }
