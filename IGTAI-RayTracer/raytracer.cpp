@@ -8,6 +8,8 @@
 
 // thibault.lejemble@irit.fr
 
+color3 anti_aliasing(Scene *scene, KdTree *tree, int n, vec3 dx, vec3 dy, vec3 centre, int i, int j);
+
 /// acne_eps is a small constant used to prevent acne when computing intersection
 //  or boucing (add this amount to the position before casting a new ray !
 const float acne_eps = 1e-4;
@@ -263,7 +265,7 @@ color3 trace_ray(Scene * scene, Ray *ray, KdTree *tree) {
     vec3 n = intersection.normal; //pourquoi essaie ici
     point3 p = intersection.position;
     Ray newRay;
-
+    Ray refRay;
     size_t lightCount = scene->lights.size();
     for ( size_t i=0; i<lightCount; i++) {
       lgt = scene->lights[i];
@@ -279,14 +281,15 @@ color3 trace_ray(Scene * scene, Ray *ray, KdTree *tree) {
       }
     }
 
-    if (ray->depth < 4) {
-      Ray refRay;
+    if (ray->depth < 8) {
       rr = normalize(reflect(ray->dir, intersection.normal)); // peut etre inverser les parametre pour voir
       //calcul du rayon secondaire
       vec3 newOrig = p+acne_eps*(rr);
-      rayInit(&refRay, newOrig, rr);
-      refRay.depth +=1; //on incremente le nombre de rebon
+      rayInit(&refRay, newOrig, rr, 0, 10000, ray->depth+1);
+      //refRay.depth +=1; //on incremente le nombre de rebon
       cr = trace_ray(scene, &refRay, tree);
+
+      //on verifie que le cr ne depasse pas 1, si c'est le cas on le ramene à 1 car trop de reflection sion
       if (cr.x > 1) {
         cr.x = 1;
       }
@@ -297,9 +300,9 @@ color3 trace_ray(Scene * scene, Ray *ray, KdTree *tree) {
         cr.z = 1;
       }
       vec3 h = normalize(v + rr);
-      l = rr;//rr
+      l = rr;
       float LdotH = dot(l, h);
-      return ret+RDM_Fresnel(LdotH, 1.f, intersection.mat->IOR)*cr;
+      return ret+RDM_Fresnel(LdotH, 1.f, intersection.mat->IOR)*cr*intersection.mat->specularColor;
     }else {
       return color3(0,0,0);
     }
@@ -339,33 +342,38 @@ void renderImage(Image *img, Scene *scene) {
     for(size_t i=0; i<img->width; i++) {
       color3 *ptr = getPixelPtr(img, i,j);
       // vec3 ray_dir = scene->cam.center + ray_delta_x + ray_delta_y + float(i)*dx + float(j)*dy;
-      
-      vec3 ray_dir1 = scene->cam.center + ray_delta_x + ray_delta_y + float(i+0.3f)*dx + float(j)*dy;
-      vec3 ray_dir2 = scene->cam.center + ray_delta_x + ray_delta_y + float(i+0.1f)*dx + float(j)*dy;
-      vec3 ray_dir3 = scene->cam.center + ray_delta_x + ray_delta_y + float(i-0.1f)*dx + float(j)*dy;
-      vec3 ray_dir4 = scene->cam.center + ray_delta_x + ray_delta_y + float(i-0.3f)*dx + float(j)*dy;
 
-      Ray rx1, rx2, rx3, rx4;
+      vec3 centre = scene->cam.center + ray_delta_x + ray_delta_y;
 
       // Ray rx;
       // rayInit(&rx, scene->cam.position, normalize(ray_dir));
 
-      rayInit(&rx1, scene->cam.position, normalize(ray_dir1));
-      rayInit(&rx2, scene->cam.position, normalize(ray_dir2));
-      rayInit(&rx3, scene->cam.position, normalize(ray_dir3));
-      rayInit(&rx4, scene->cam.position, normalize(ray_dir4));
-
       // *ptr += trace_ray(scene, &rx, tree);
 
-      // // color3 ptr1, ptr2, ptr3, p;
-      *ptr = trace_ray(scene, &rx1, tree);
-      *ptr += trace_ray(scene, &rx2, tree);
-      *ptr += trace_ray(scene, &rx3, tree);
-      *ptr += trace_ray(scene, &rx4, tree);
-      *ptr = color3((*ptr).x/4, (*ptr).y/4, (*ptr).z/4);
-      // char c = 0;
-      // printf("x = %f y = %f z = %f\n", (*ptr).x, (*ptr).y, (*ptr).z);
-      // scanf("%c", &c);
+      *ptr += anti_aliasing(scene, tree, 8, dx, dy, centre, i, j);
     }
   }
+}
+
+color3 anti_aliasing(Scene *scene, KdTree *tree, int n, vec3 dx, vec3 dy, vec3 centre, int i, int j) {
+
+  Ray rx;
+  vec3 ray_dir;
+  color3 ptr;
+  char t = 0;
+
+  for (float k = -0.5f+(1.f/(2*n)); k < 0.5f; k += (1.f/n)) {
+  //   printf("interval k = %f\n", k);
+    for (float p = -0.5f+(1.f/(2*n)); p < 0.5f; p += (1.f/n)){
+      ray_dir = centre + float(i+p)*dx + float(j+k)*dy;
+      rayInit(&rx, scene->cam.position, normalize(ray_dir));
+      ptr += trace_ray(scene, &rx, tree);
+      // scanf("%c", &t);
+    }
+  }
+  ptr = (1.f/(n*n))*(ptr);
+  // printf("ptr.x = %f \n", ptr.x);
+
+  // scanf("%c", &t);
+  return ptr;
 }

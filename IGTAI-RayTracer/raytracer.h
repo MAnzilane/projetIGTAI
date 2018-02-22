@@ -9,7 +9,7 @@
 
 
 //! An intersection contains all the information to shade an intersection point.
-typedef struct intersection_s { 
+typedef struct intersection_s {
   vec3 normal; //! the normal of the intersection point
   point3 position; //! the intersection point
   Material *mat; //! the material of th intersected object
