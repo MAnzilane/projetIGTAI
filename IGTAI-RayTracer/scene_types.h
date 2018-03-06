@@ -36,6 +36,13 @@ typedef struct geometry_s {
             vec3 normal;
             float dist;
         } plane;
+        struct { //modification personnelle
+          //triangle
+          point3 pointA;
+          point3 pointB;
+          point3 pointC;
+          vec3 normal;
+        }triangle;
     };
 } Geometry;
 
@@ -43,13 +50,13 @@ typedef struct object_s {
   /** not used yet, but you should use it to transform ray before
    *  computing intersection (and thu have a better control on 3D position
    */
-  mat3 orientation; 
-  
+  mat3 orientation;
+
   /** not used yet, but you should use it to transform ray before
    *  computing intersection (and thu have a better control on 3D position
    */
-  vec3 tranlation; 
-  
+  vec3 tranlation;
+
     Geometry geom;
     Material mat;
 } Object;

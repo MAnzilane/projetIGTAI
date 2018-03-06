@@ -3,6 +3,17 @@
 #include <string.h>
 #include <algorithm>
 
+Object *initTriangle(point3 pointA, point3 pointB, point3 pointC, Material mat) {
+    Object *ret;
+    ret = (Object *)malloc(sizeof(Object));
+    ret->geom.type = TRIANGLE;
+    ret->geom.triangle.pointA = pointA;
+    ret->geom.triangle.pointB = pointB;
+    ret->geom.triangle.pointB = pointB;
+    memcpy(&(ret->mat), &mat, sizeof(Material));
+    return ret;
+}
+
 Object *initSphere(point3 center, float radius, Material mat) {
     Object *ret;
     ret = (Object *)malloc(sizeof(Object));

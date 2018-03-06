@@ -14,6 +14,79 @@ color3 anti_aliasing(Scene *scene, KdTree *tree, int n, vec3 dx, vec3 dy, vec3 c
 //  or boucing (add this amount to the position before casting a new ray !
 const float acne_eps = 1e-4;
 const float pi = 3.1415926f;
+const float EPSILON = 0.0000001;
+
+bool intersectTriangle1(Ray *ray, Intersection *intersection, Object *obj) {
+
+  vec3 v0 = obj->geom.triangle.pointA;
+  vec3 v1 = obj->geom.triangle.pointB;
+  vec3 v2 = obj->geom.triangle.pointC;
+
+  float a, u, v, f;
+  vec3 e1, e2, h, s, q;
+  e1 = v1-v0;
+  e2 = v2-v0;
+
+  h = cross(ray->dir, e2);
+  a = dot(e1, h);
+  if (a > -EPSILON && a < EPSILON) return false;
+
+  f = 1/a;
+
+  s = ray->orig - v0;
+  u = f * dot(s, h);
+  if (u < 0.0 || u > 1.0) return false;
+
+  q = cross(s, e1);
+  v = f*dot(ray->dir, q);
+  if (v < 0.0 || u+v > 1) return false;
+
+  float t = f*dot(e2, q);
+  if (t > ray->tmin && t < ray->tmax) {
+    intersection->normal = normalize(cross(e2, e1));
+    intersection->position = rayAt(*ray, t);
+    intersection->mat = &(obj->mat);
+    ray->tmax = t;
+    return true;
+  }
+  return false;
+}
+
+bool intersectTriangle(Ray *ray, Intersection *intersection, Object *obj) {
+  //calcule de Discriminent
+  vec3 E2 = obj->geom.triangle.pointB - obj->geom.triangle.pointA;
+  vec3 E1 = obj->geom.triangle.pointC - obj->geom.triangle.pointA;
+  vec3 T = ray->orig - obj->geom.triangle.pointA;
+  vec3 n = cross(E2, E1);
+  // float d_n = dot(ray->dir, n);
+
+  // if (d_n == 0) return false;
+
+  vec3 p = cross(ray->dir, E2);
+  vec3 q = cross(T, E1);
+
+  float det = dot(p, E1);
+  if (det == 0) return false;
+  det = 1/det;
+  float u = det * dot(p, T);
+  if (u < 0) return false;
+
+  float v = det*dot(q, ray->dir);
+
+  if (v < 0 || (u+v > 1)) return false;
+
+  // if (u+v > 1) return false;
+
+  float t = det*dot(q, E2);
+  if (t >= ray->tmin && t <= ray->tmax) { // il y'a une intersection
+    intersection->normal = normalize(n);
+    intersection->position = rayAt(*ray, t);
+    intersection->mat = &(obj->mat);
+    ray->tmax = t;
+    return true;
+  }
+  return false;
+}
 
 bool intersectPlane(Ray *ray, Intersection *intersection, Object *obj) {
   bool res = false;
@@ -86,14 +159,22 @@ bool intersectScene(const Scene *scene, Ray *ray, Intersection *intersection) {
   size_t objectCount = scene->objects.size();
   for ( size_t i=0; i<objectCount; i++) {
     Etype type = scene->objects[i]->geom.type;
-    if (type == PLANE) {
-      if (intersectPlane(ray, intersection, scene->objects[i])) {
-        hasIntersection = true;
-      }
-    }else if (type == SPHERE) {
-      if (intersectSphere(ray, intersection, scene->objects[i])) {
-        hasIntersection = true;
-      }
+    switch (type) {
+      case PLANE:
+        if (intersectPlane(ray, intersection, scene->objects[i])) {
+          hasIntersection = true;
+        }
+        break;
+      case SPHERE:
+        if (intersectSphere(ray, intersection, scene->objects[i])) {
+          hasIntersection = true;
+        }
+        break;
+      case TRIANGLE:
+        if (intersectTriangle(ray, intersection, scene->objects[i])) {
+          hasIntersection = true;
+        }
+        break;
     }
   }
   //!\todo loop on each object of the scene to compute intersection
@@ -159,9 +240,10 @@ float RDM_G1(float DdotH, float DdotN, float alpha) {
   if (k > 0 && b < 1.6) {
     G1 = (3.535 * b + 2.181 * b * b) / (1 + 2.276 * b + 2.577 * b * b);
   }else {
-    if (k > 0) {
-      G1 = 1.0;
-    }
+     G1 = RDM_chiplus(k);
+    // if (k > 0) {
+    //   G1 = 1.0;
+    // }
   }
   //!\todo compute G1 term of the Smith fonction
   //return 0.5f;
@@ -234,7 +316,7 @@ color3 shade(vec3 n, vec3 v, vec3 l, color3 lc, Material *mat ){
   //color3 ret = color3(0,0,0);
   float LdotN = dot(l, n);
   if (LdotN > 0) {
-    vec3 h = normalize(v+l); // je ne suis   bsolument pas sur : half-vector
+    vec3 h = normalize((v+l)/length(v+l)); // je ne suis   bsolument pas sur : half-vector
     float LdotH = dot(l, h);
     float NdotH = dot(n, h);
     float VdotH = dot(v, h);
@@ -254,8 +336,9 @@ color3 trace_ray(Scene * scene, Ray *ray, KdTree *tree) {
   color3 ret = color3(0,0,0);
   Intersection intersection;
   if (intersectScene(scene, ray, &intersection)) {
-    //vec3 c = 0.5f*(intersection.normal)+0.5f;
-    //ret = color3(c.x, c.y, c.z); //première coloration
+    // vec3 c = 0.5f*(intersection.normal)+0.5f;
+    // ret = color3(c.x, c.y, c.z); //première coloration
+    // return ret;
     vec3 l;
     vec3 rr;
     vec3 cr;
@@ -299,6 +382,7 @@ color3 trace_ray(Scene * scene, Ray *ray, KdTree *tree) {
       if (cr.z > 1) {
         cr.z = 1;
       }
+
       vec3 h = normalize(v + rr);
       l = rr;
       float LdotH = dot(l, h);
@@ -350,7 +434,7 @@ void renderImage(Image *img, Scene *scene) {
 
       // *ptr += trace_ray(scene, &rx, tree);
 
-      *ptr += anti_aliasing(scene, tree, 8, dx, dy, centre, i, j);
+      *ptr += anti_aliasing(scene, tree, 2, dx, dy, centre, i, j);
     }
   }
 }
@@ -360,20 +444,14 @@ color3 anti_aliasing(Scene *scene, KdTree *tree, int n, vec3 dx, vec3 dy, vec3 c
   Ray rx;
   vec3 ray_dir;
   color3 ptr;
-  char t = 0;
 
   for (float k = -0.5f+(1.f/(2*n)); k < 0.5f; k += (1.f/n)) {
-  //   printf("interval k = %f\n", k);
     for (float p = -0.5f+(1.f/(2*n)); p < 0.5f; p += (1.f/n)){
       ray_dir = centre + float(i+p)*dx + float(j+k)*dy;
       rayInit(&rx, scene->cam.position, normalize(ray_dir));
       ptr += trace_ray(scene, &rx, tree);
-      // scanf("%c", &t);
     }
   }
   ptr = (1.f/(n*n))*(ptr);
-  // printf("ptr.x = %f \n", ptr.x);
-
-  // scanf("%c", &t);
   return ptr;
 }

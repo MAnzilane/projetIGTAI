@@ -271,6 +271,119 @@ Scene* initScene3(){
     return scene;
 }
 
+Scene* initScene5(){
+  Scene *scene = initScene();
+  setCamera(scene, point3(3,1,0), vec3(0,0.3,0), vec3(0,1,0), 60, (float)WIDTH/(float)HEIGHT);
+  setSkyColor(scene, color3(0.1f, 0.3f, 0.5f));
+  Material mat;
+  mat.IOR = 1.3;
+  mat.roughness = 0.1;
+  mat.specularColor = color3(0.5f);
+
+  mat.diffuseColor = color3(.5f);
+  // mat.diffuseColor = color3(.5,0.09,.07);
+
+  mat.diffuseColor = color3(0.5f, 0.f, 0.f);
+  point3 a1, a2, a3, a4, b1, b2, b3, b4, c1, c2, c3, c4;
+  a1 = point3(0, 1, 0); b1 = point3(1, 1, 0); c1 = point3(0, 0, 1); c2 = point3(0.5, 0, 1);
+  a2 = a1; b2 = b1; a3 = a1; b3 = c1; c3 = c2; a4 = b1; b4 = c2; c4 = c1;
+  mat.diffuseColor = color3(0.5f, 0.f, 0.f);
+  addObject(scene, initTriangle(a1, b1, c1, mat));
+  // addObject(scene, initTriangle(a2, b2, c2, mat));
+  // addObject(scene, initTriangle(a3, b3, c3, mat));
+  // addObject(scene, initTriangle(a4, b4, c4, mat));
+
+
+  mat.diffuseColor  = color3(0.6f);
+  addObject(scene, initPlane(vec3(0,1,0), 0, mat));
+
+  addLight(scene, initLight(point3(10, 10,10), color3(1,1,1)));
+  addLight(scene, initLight(point3(4, 10,-2), color3(1,1,1)));
+
+    return scene;
+}
+
+Scene* initScene4() {
+  Scene *scene = initScene();
+  setCamera(scene, point3(4.5,.8,4.5), vec3(0,0.3,0), vec3(0,1,0), 60, (float)WIDTH/(float)HEIGHT);
+  setSkyColor(scene, color3(0.2, 0.2, 0.7));
+  Material mat;
+  mat.diffuseColor = color3(0.301, 0.034, 0.039);
+  mat.specularColor  = color3(1.0, 0.992, 0.98);
+  mat.IOR = 1.1382;
+  mat.roughness = 0.0886;
+
+  addLight(scene, initLight(point3(0, 1.7, 1), .5f*color3(3,3,3)));
+  addLight(scene, initLight(point3(3, 2, 3),   .5f*color3(4, 4, 4)));
+  addLight(scene, initLight(point3(4,3,-1),    .5f*color3(5, 5, 5)));
+
+
+  mat.IOR = 1.3;
+  mat.roughness = 0.1;
+  mat.specularColor = color3(0.5f);
+
+  // mat.diffuseColor = color3(.5f);
+  mat.diffuseColor = color3(.5,0.09,.07);
+  addObject(scene, initTriangle(point3(1, 0.5, 0), point3(0, 0.5, 1), point3(0.5, 1, 0), mat));
+
+
+  // mat.diffuseColor = color3(0.014, 0.012, 0.012);
+  // mat.specularColor  = color3(0.7, 0.882, 0.786);
+  // mat.IOR = 6;
+  // mat.roughness = 0.0181;
+  // addObject( scene, initSphere(point3(0,0.1,0),.3, mat));
+  //
+  // mat.diffuseColor = color3(0.26, 0.036, 0.014);
+  // mat.specularColor  = color3(1.0, 0.852, 1.172);
+  // mat.IOR = 1.3771;
+  // mat.roughness = 0.01589;
+  // addObject( scene, initSphere(point3(1,-.05,0),.15, mat));
+  //
+  // mat.diffuseColor = color3(0.014, 0.012, 0.012);
+  // mat.specularColor  = color3(0.7, 0.882, 0.786);
+  // mat.IOR = 3;
+  // mat.roughness = 0.00181;
+  // addObject( scene, initSphere(point3(3,0.05,2),.25, mat));
+  //
+  // mat.diffuseColor = color3(0.46, 0.136, 0.114);
+  // mat.specularColor  = color3(0.8, 0.852, 0.8172);
+  // mat.IOR = 1.5771;
+  // mat.roughness = 0.01589;
+  // addObject( scene, initSphere(point3(1.3,0.,2.6),0.215, mat));
+  //
+  // mat.diffuseColor = color3(0.06, 0.26, 0.22);
+  // mat.specularColor  = color3(0.70, 0.739, 0.721);
+  // mat.IOR = 1.3051;
+  // mat.roughness = 0.567;
+  // addObject( scene, initSphere(point3(1.9,0.05,2.2),.25, mat));
+  //
+  // mat.diffuseColor = color3(0.012,0.036,0.406);
+  // mat.specularColor  = color3(1.0, 0.965, 1.07);
+  // mat.IOR = 1.1153;
+  // mat.roughness = 0.068;
+  // mat.roughness = 0.18;
+  // addObject( scene, initSphere(point3(0,0,1),.20, mat));
+
+  mat.diffuseColor = color3(.2,0.4,.3);
+  mat.specularColor = color3(.2,0.2,.2);
+  mat.IOR = 1.382;
+  mat.roughness = 0.05886;
+  addObject(scene, initPlane(vec3(0,1,0),0.2, mat));
+
+  mat.diffuseColor = color3(.5,0.09,.07);
+  mat.specularColor = color3(.2,.2,.1);
+  mat.IOR = 1.8382;
+  mat.roughness = 0.886;
+  addObject(scene, initPlane(vec3(1, 0.0, -1.0), 2, mat));
+
+
+  mat.diffuseColor = color3(0.1,0.3,.05);
+  mat.specularColor = color3(.5,.5,.5);
+  mat.IOR = 1.9382;
+  mat.roughness = 0.0886;
+  addObject(scene, initPlane(vec3(0.3,-0.2, 1), 4, mat));
+  return scene;
+}
 int main(int argc, char *argv[]) {
     printf("Welcom to the L3 IGTAI RayTracer project\n");
 
@@ -305,7 +418,9 @@ int main(int argc, char *argv[]) {
     case  3 :
         scene = initScene3();
         break;
-
+    case  5 :
+        scene = initScene5();
+        break;
     default :
         scene = initScene0();
         break;
