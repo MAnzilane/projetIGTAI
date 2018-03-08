@@ -1,6 +1,7 @@
 #include <stdio.h>
 #include <string.h>
 #include <stdlib.h>
+#include <string.h>
 #include "defines.h"
 #include "ray.h"
 #include "scene.h"
@@ -79,6 +80,58 @@
  mat.roughness = 0.068;
  */
 
+int split(char * coord) {
+  char res[10];
+  // int i =0;
+  for (size_t i = 0; i < strlen(coord); i++) {
+    if (coord[i] != '/') {
+      res[i] = coord[i];
+    }else {
+      res[i] = '\0';
+      i = strlen(coord);
+    }
+  }
+  return atoi(res);
+}
+
+Object ** loueEnMaillage(const char * filename, Material mat, float miseAlEchelle){
+    //ouverture du fichier de lecture
+    FILE * fic = NULL;
+    if ((fic = fopen(filename, "r")) == NULL) {
+      fprintf(stderr, "%s n'existe pas\n", filename);
+      exit(EXIT_FAILURE);
+    }
+
+    //initilisation des object
+    Object ** ensObj = (Object **)malloc(sizeof(Object*)*956); //[956];
+    float tabCoord[547][3];
+    char marque[40];
+    char coord1[20], coord2[20], coord3[20];
+    //lecture des coordonnee
+    for (int i = 1; i < 547; i++) {
+      if(fscanf(fic, "%f %f %f", &tabCoord[i][0], &tabCoord[i][1], &tabCoord[i][2]) == 0) exit(EXIT_FAILURE);
+      // printf("%f %f %f \n", tabCoord[i][0], tabCoord[i][1], tabCoord[i][2]);
+    }
+
+    if(fscanf(fic, "%s", marque) == 0) exit(EXIT_FAILURE);
+    // printf("marque %s\n", marque);
+    point3 a, b, c;
+    if (strcmp(marque, "#finCoordonnee") == 0) {
+      // #pragma omp parallel for
+      for (size_t i = 0; i < 956; i++) {
+        if(fscanf(fic,"%s %s %s", coord1, coord2, coord3) == 0) exit(EXIT_FAILURE);
+        // printf("%d %d %d\n", split(coord1), split(coord2), split(coord3));
+        // printf("%f %f %f\n", tabCoord[split(coord1)][0], tabCoord[split(coord1)][1], tabCoord[split(coord1)][2]);
+        a = point3(tabCoord[split(coord1)][0]/miseAlEchelle, tabCoord[split(coord1)][1]/miseAlEchelle, tabCoord[split(coord1)][2]/miseAlEchelle);
+        b = point3(tabCoord[split(coord2)][0]/miseAlEchelle, tabCoord[split(coord2)][1]/miseAlEchelle, tabCoord[split(coord2)][2]/miseAlEchelle);
+        c = point3(tabCoord[split(coord3)][0]/miseAlEchelle, tabCoord[split(coord3)][1]/miseAlEchelle, tabCoord[split(coord3)][2]/miseAlEchelle);
+        ensObj[i] = initTriangle(a, b, c, mat);
+        // printf("%f\n",a.x);
+      }
+    }
+    fclose(fic);
+    return ensObj;
+}
 
 Scene * initScene0() {
     Scene *scene = initScene();
@@ -281,17 +334,30 @@ Scene* initScene5(){
   mat.specularColor = color3(0.5f);
 
   mat.diffuseColor = color3(.5f);
-  // mat.diffuseColor = color3(.5,0.09,.07);
+  // addObject( scene, initSphere(point3(0,0, 0),0.25, mat));
+
 
   mat.diffuseColor = color3(0.5f, 0.f, 0.f);
-  point3 a1, a2, a3, a4, b1, b2, b3, b4, c1, c2, c3, c4;
-  a1 = point3(0, 1, 0); b1 = point3(1, 1, 0); c1 = point3(0, 0, 1); c2 = point3(0.5, 0, 1);
-  a2 = a1; b2 = b1; a3 = a1; b3 = c1; c3 = c2; a4 = b1; b4 = c2; c4 = c1;
-  mat.diffuseColor = color3(0.5f, 0.f, 0.f);
-  addObject(scene, initTriangle(a1, b1, c1, mat));
-  // addObject(scene, initTriangle(a2, b2, c2, mat));
-  // addObject(scene, initTriangle(a3, b3, c3, mat));
-  // addObject(scene, initTriangle(a4, b4, c4, mat));
+  // addObject( scene, initSphere(point3(1,0, 0),.25, mat));
+  point3 a, b, c;
+  // a = point3(21.143898/500, 147.448031/500, 14.745709/500);
+  // b = point3(5.974213/500, 131.727165/500, 123.902559/500);
+  // c = point3(12.127831/500, 97.344388/500, -33.011476/500);
+  Object **obj = loueEnMaillage("loue.txt", mat, 300);
+  printf("ensemble d'objects créés\n");
+  // int t = 0;
+  // scanf("%d", &t);
+  // #pragma omp parallel for
+  for (size_t i = 0; i < 956; i++) {
+    addObject(scene, obj[i]);
+  }
+  // addObject(scene, initTriangle(a, b, c, mat));
+
+  // mat.diffuseColor = color3(0.f, 0.5f, 0.5f);
+  // addObject( scene, initSphere(point3(0,1, 0),.25, mat));
+  //
+  // mat.diffuseColor = color3(0.f, 0.f, 0.5f);
+  // addObject( scene, initSphere(point3(0,0,1),.25, mat));
 
 
   mat.diffuseColor  = color3(0.6f);
@@ -300,7 +366,7 @@ Scene* initScene5(){
   addLight(scene, initLight(point3(10, 10,10), color3(1,1,1)));
   addLight(scene, initLight(point3(4, 10,-2), color3(1,1,1)));
 
-    return scene;
+  return scene;
 }
 
 Scene* initScene4() {
@@ -324,19 +390,23 @@ Scene* initScene4() {
 
   // mat.diffuseColor = color3(.5f);
   mat.diffuseColor = color3(.5,0.09,.07);
-  addObject(scene, initTriangle(point3(1, 0.5, 0), point3(0, 0.5, 1), point3(0.5, 1, 0), mat));
 
 
-  // mat.diffuseColor = color3(0.014, 0.012, 0.012);
-  // mat.specularColor  = color3(0.7, 0.882, 0.786);
-  // mat.IOR = 6;
-  // mat.roughness = 0.0181;
-  // addObject( scene, initSphere(point3(0,0.1,0),.3, mat));
-  //
-  // mat.diffuseColor = color3(0.26, 0.036, 0.014);
-  // mat.specularColor  = color3(1.0, 0.852, 1.172);
-  // mat.IOR = 1.3771;
-  // mat.roughness = 0.01589;
+  mat.diffuseColor = color3(0.014, 0.012, 0.012);
+  mat.specularColor  = color3(0.7, 0.882, 0.786);
+  mat.IOR = 6;
+  mat.roughness = 0.0181;
+  addObject( scene, initSphere(point3(0, 0.1, 0),.3, mat));
+  addObject( scene, initSphere(point3(0, 1, 0),.3, mat));
+  addObject( scene, initSphere(point3(1, 1, -1),.3, mat));
+
+  mat.diffuseColor = color3(0.26, 0.036, 0.014);
+  mat.specularColor  = color3(1.0, 0.852, 1.172);
+  mat.IOR = 3;
+  mat.roughness = 0.01589;
+  addObject(scene, initTriangle(point3(-1, 1, -0.5), point3(-0.4, 0.5, 1), point3(1, -1, 0), mat));
+  addObject(scene, initTriangle(point3(0, 1, 0), point3(1, 1, -1), point3(0, 0.1, 0), mat));
+
   // addObject( scene, initSphere(point3(1,-.05,0),.15, mat));
   //
   // mat.diffuseColor = color3(0.014, 0.012, 0.012);
@@ -417,6 +487,9 @@ int main(int argc, char *argv[]) {
         break;
     case  3 :
         scene = initScene3();
+        break;
+    case  4 :
+        scene = initScene4();
         break;
     case  5 :
         scene = initScene5();

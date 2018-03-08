@@ -54,13 +54,13 @@ bool intersectTriangle1(Ray *ray, Intersection *intersection, Object *obj) {
 
 bool intersectTriangle(Ray *ray, Intersection *intersection, Object *obj) {
   //calcule de Discriminent
-  vec3 E2 = obj->geom.triangle.pointB - obj->geom.triangle.pointA;
-  vec3 E1 = obj->geom.triangle.pointC - obj->geom.triangle.pointA;
+  vec3 E1 = obj->geom.triangle.pointB - obj->geom.triangle.pointA;
+  vec3 E2 = obj->geom.triangle.pointC - obj->geom.triangle.pointA;
   vec3 T = ray->orig - obj->geom.triangle.pointA;
-  vec3 n = cross(E2, E1);
-  // float d_n = dot(ray->dir, n);
+  vec3 n = normalize(cross(E2, E1));
+  float d_n = dot(ray->dir, n);
 
-  // if (d_n == 0) return false;
+  if (d_n == 0) return false;
 
   vec3 p = cross(ray->dir, E2);
   vec3 q = cross(T, E1);
@@ -79,7 +79,7 @@ bool intersectTriangle(Ray *ray, Intersection *intersection, Object *obj) {
 
   float t = det*dot(q, E2);
   if (t >= ray->tmin && t <= ray->tmax) { // il y'a une intersection
-    intersection->normal = normalize(n);
+    intersection->normal = n;
     intersection->position = rayAt(*ray, t);
     intersection->mat = &(obj->mat);
     ray->tmax = t;
@@ -434,7 +434,7 @@ void renderImage(Image *img, Scene *scene) {
 
       // *ptr += trace_ray(scene, &rx, tree);
 
-      *ptr += anti_aliasing(scene, tree, 2, dx, dy, centre, i, j);
+      *ptr += anti_aliasing(scene, tree, 1, dx, dy, centre, i, j);
     }
   }
 }
