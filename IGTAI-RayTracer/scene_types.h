@@ -4,7 +4,6 @@
 #include "defines.h"
 #include "scene.h"
 #include <vector>
-
 //! \file : internal types to describe a scene
 typedef struct light_s {
     point3 position;
@@ -41,8 +40,27 @@ typedef struct geometry_s {
           point3 pointA;
           point3 pointB;
           point3 pointC;
-          vec3 normal;
         }triangle;
+        struct {
+            //cylindre fini
+            float radius;
+            float height;
+              int orientation; // 0 sur x, 1 sur y, 2 sur z tout autre sur y
+            vec3 centre;
+        }cylindre;
+        struct {
+            //cone
+            point3 centre;
+            vec3 vecteur;
+            float h;
+            float radius;
+        }cone;
+        struct {
+          //cercle
+          point3 centre;
+          vec3 normal;
+          float radius;
+        }cercle;
     };
 } Geometry;
 

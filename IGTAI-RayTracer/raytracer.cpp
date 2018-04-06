@@ -5,80 +5,264 @@
 #include "image.h"
 #include "kdtree.h"
 #include <stdio.h>
-
+#include <math.h>
 // thibault.lejemble@irit.fr
-
+#define NbRayon 2
+#define NbRebond 6
 color3 anti_aliasing(Scene *scene, KdTree *tree, int n, vec3 dx, vec3 dy, vec3 centre, int i, int j);
-
+bool solver(float a, float b, float c, float*t);
 /// acne_eps is a small constant used to prevent acne when computing intersection
 //  or boucing (add this amount to the position before casting a new ray !
 const float acne_eps = 1e-4;
 const float pi = 3.1415926f;
 const float EPSILON = 0.0000001;
 
-bool intersectTriangle1(Ray *ray, Intersection *intersection, Object *obj) {
+// bool intersectCone(Ray *ray, Intersection *intersection, Object *obj) {
+//     vec3 O = ray->orig;
+//     vec3 D = ray->dir;
+//     float cost = cos(pi/2);
+//     float cos2 = cost*cost;
+//
+//     point3 P; //point d'intersection
+//     vec3 v = obj->geom.cone.vecteur;
+//     point3 C = obj->geom.cone.centre; //C
+//     float r = obj->geom.cone.radius; //r
+//     vec3 X = O-C;
+//     // float h = obj->geom.cone.h;
+//     float m =
+//
+//     float a =
+//     float b =
+//     float c =
+//     float t;
+//     float d = b*b-4*a*c;
+//
+//     if (d < 0) return false; //delatat degatuve
+//
+//     if (d == 0) { //bcp de cas
+//       // if(cosa == dot(v, ht)) return false;
+//       t = -b/2*a;
+//     }else {//delata > 0
+//       t = (-b-sqrt(d))/(2*a);
+//       if (t < 0) {
+//         t = (-b+sqrt(d))/2*a;
+//       }
+//     }
+//
+//     if (ray->tmin < t && ray->tmax > t) { // on est dans l'intervalle
+//       P = rayAt(*ray, t);
+//       float R = P.y;
+//       if (R <= C.y || R >= C.y + h) return false;
+//       R =sqrt((P.x-C.x)*(P.x-C.x)+(P.z-C.z)*(P.z-C.z));
+//       intersection->position = P; //ray->orig+t*obj->geom.plane.dist;
+//       intersection->mat = &(obj->mat);
+//       intersection->normal = point3(P.x-C.x,0,P.z-C.z);
+//       ray->tmax = t; //mise à jour du tmax pour evité l'effet de bord
+//       return true;
+//     }
+//     return false;
+// }
 
-  vec3 v0 = obj->geom.triangle.pointA;
-  vec3 v1 = obj->geom.triangle.pointB;
-  vec3 v2 = obj->geom.triangle.pointC;
+bool intersectCercle(Ray *ray, Intersection *intersection, Object *obj) {
+  Geometry g = obj->geom;
+  point3 p;
+  float r = g.cercle.radius;
+  vec3 n = g.cercle.normal;
+  point3 c = g.cercle.centre;
+  point3 o = ray->orig;
+  vec3 d = ray->dir;
 
-  float a, u, v, f;
-  vec3 e1, e2, h, s, q;
-  e1 = v1-v0;
-  e2 = v2-v0;
+  float distOrigin = -dot(n,c);
+  float t;
+  float DdotN = dot(d,n);
+  if(DdotN==0.f)
+    return false;
 
-  h = cross(ray->dir, e2);
-  a = dot(e1, h);
-  if (a > -EPSILON && a < EPSILON) return false;
 
-  f = 1/a;
+  t = (-(dot(o,n)+distOrigin))/DdotN;
 
-  s = ray->orig - v0;
-  u = f * dot(s, h);
-  if (u < 0.0 || u > 1.0) return false;
+  if(t < ray->tmin || t> ray->tmax)
+    return false;
+  p=rayAt(*ray,t);
+  if(distance(p,c)>r)
+    return false;
 
-  q = cross(s, e1);
-  v = f*dot(ray->dir, q);
-  if (v < 0.0 || u+v > 1) return false;
+  ray->tmax=t;
+  ray->depth++;
 
-  float t = f*dot(e2, q);
-  if (t > ray->tmin && t < ray->tmax) {
-    intersection->normal = normalize(cross(e2, e1));
-    intersection->position = rayAt(*ray, t);
-    intersection->mat = &(obj->mat);
-    ray->tmax = t;
+  intersection->mat=&obj->mat;
+  intersection->position = p;
+  intersection->normal = (DdotN<0.f?1.f:-1.f)*n;
+  return true;
+
+}
+bool intersectCylindreY(Ray *ray, Intersection *intersection, Object *cylindre) {
+  point3 center = cylindre->geom.cylindre.centre;
+  float radius = cylindre->geom.cylindre.radius;
+  float height = cylindre->geom.cylindre.height;
+
+  point3 o = ray->orig;
+  point3 p;
+  vec3 d = ray->dir;
+  float A = o.x - center.x;
+  float B = o.z - center.z;
+
+  float a = (d.x * d.x) + (d.z * d.z);
+  float b = (2*A*d.x) + (2*B*d.z);
+  float c = (A*A) + (B*B) - radius*radius;
+
+  float t;
+
+
+  if(!solver(a, b, c, &t)) return false;
+
+  if(t > ray->tmin && t < ray->tmax) {
+
+    p = rayAt(*ray,t);
+    float r = p.y;
+
+    if (r < center.y || r > center.y + height) return false;
+    vec3 n;
+    n = vec3 (p.x-center.x, 0, p.z-center.z);
+    ray->tmax=t;
+    ray->depth++;
+    intersection->normal=normalize(n);
+    intersection->mat=&(cylindre->mat);
+    intersection->position = rayAt(*ray,t);
+    return true;
+  }
+  return false;
+}
+bool intersectCylindreX(Ray *ray, Intersection *intersection, Object *cylindre) {
+  point3 center = cylindre->geom.cylindre.centre;
+  float radius = cylindre->geom.cylindre.radius;
+  float height = cylindre->geom.cylindre.height;
+
+  point3 o = ray->orig;
+  point3 p;
+  vec3 d = ray->dir;
+  float A = o.y - center.y;
+  float B = o.z - center.z;
+
+  float a = (d.y * d.y) + (d.z * d.z);
+  float b = (2*A*d.y) + (2*B*d.z);
+  float c = (A*A) + (B*B) - radius*radius;
+
+  float t;
+
+
+  if(!solver(a, b, c, &t)) return false;
+
+  if(t > ray->tmin && t < ray->tmax) {
+
+    p = rayAt(*ray,t);
+    float r = p.x;
+
+    if (r < center.x || r > center.x + height) return false;
+    vec3 n;
+    n = vec3 (0, p.y-center.z, p.z-center.z);
+    ray->tmax=t;
+    ray->depth++;
+    intersection->normal=normalize(n);
+    intersection->mat=&(cylindre->mat);
+    intersection->position = rayAt(*ray,t);
     return true;
   }
   return false;
 }
 
+bool intersectCylindreZ(Ray *ray, Intersection *intersection, Object *cylindre) {
+  point3 center = cylindre->geom.cylindre.centre;
+  float radius = cylindre->geom.cylindre.radius;
+  float height = cylindre->geom.cylindre.height;
+
+  point3 o = ray->orig;
+  point3 p;
+  vec3 d = ray->dir;
+  float A = o.x - center.x;
+  float B = o.y - center.y;
+
+  float a = (d.x * d.x) + (d.y * d.y);
+  float b = (2*A*d.x) + (2*B*d.y);
+  float c = (A*A) + (B*B) - radius*radius;
+
+  float t;
+
+
+  if(!solver(a, b, c, &t)) return false;
+
+  if(t > ray->tmin && t < ray->tmax) {
+
+    p = rayAt(*ray,t);
+    float r = p.z;
+
+    if (r < center.z || r > center.z + height) return false;
+    vec3 n;
+    n = vec3 (p.x-center.x, p.y-center.y, 0);
+    ray->tmax=t;
+    ray->depth++;
+    intersection->normal=normalize(n);
+    intersection->mat=&(cylindre->mat);
+    intersection->position = rayAt(*ray,t);
+    return true;
+  }
+  return false;
+}
+
+//intersection en fonction de l'oriantation
+bool intersectCylindre(Ray *ray, Intersection *intersection, Object *cylindre) {
+  switch (cylindre->geom.cylindre.orientation) {
+    case 0:
+      return intersectCylindreY(ray, intersection, cylindre);
+      break;
+    case 1:
+      return intersectCylindreX(ray, intersection, cylindre);
+      break;
+    case 2:
+      return intersectCylindreZ(ray, intersection, cylindre);
+      break;
+    default:
+      return intersectCylindreY(ray, intersection, cylindre);
+      break;
+  }
+}
+
+
 bool intersectTriangle(Ray *ray, Intersection *intersection, Object *obj) {
   //calcule de Discriminent
-  vec3 E1 = obj->geom.triangle.pointB - obj->geom.triangle.pointA;
-  vec3 E2 = obj->geom.triangle.pointC - obj->geom.triangle.pointA;
-  vec3 T = ray->orig - obj->geom.triangle.pointA;
+  point3 A = obj->geom.triangle.pointA;
+  point3 B = obj->geom.triangle.pointB;
+  point3 C = obj->geom.triangle.pointC;
+  vec3 E1 = A - C;
+  vec3 E2 = B - C;
+  vec3 T = ray->orig - C;
   vec3 n = normalize(cross(E2, E1));
+
   float d_n = dot(ray->dir, n);
 
   if (d_n == 0) return false;
-
+  if (d_n >= 0) {
+    n = -1.f*n;
+  }
   vec3 p = cross(ray->dir, E2);
   vec3 q = cross(T, E1);
 
   float det = dot(p, E1);
+  // float det = -dot(cross(C, B), A);
   if (det == 0) return false;
-  det = 1/det;
-  float u = det * dot(p, T);
+  float invDet = 1/det;
+  float u = invDet * dot(p, T);
   if (u < 0) return false;
 
-  float v = det*dot(q, ray->dir);
+  float v = invDet*dot(q, ray->dir);
 
   if (v < 0 || (u+v > 1)) return false;
 
   // if (u+v > 1) return false;
 
-  float t = det*dot(q, E2);
-  if (t >= ray->tmin && t <= ray->tmax) { // il y'a une intersection
+  float t = invDet*dot(q, E2);
+  if (t > ray->tmin && t < ray->tmax) { // il y'a une intersection
+
     intersection->normal = n;
     intersection->position = rayAt(*ray, t);
     intersection->mat = &(obj->mat);
@@ -121,7 +305,7 @@ bool solver(float a, float b, float c, float*t) {
     if (s1 > 0) {
       *t = s1;
     }else {
-      *t = -b+sqrt(delta)/2*a;
+      *t = (-b+sqrt(delta))/2*a;
     }
     res = true;
   }
@@ -172,6 +356,16 @@ bool intersectScene(const Scene *scene, Ray *ray, Intersection *intersection) {
         break;
       case TRIANGLE:
         if (intersectTriangle(ray, intersection, scene->objects[i])) {
+          hasIntersection = true;
+        }
+        break;
+      case CYLINDRE:
+        if (intersectCylindre(ray, intersection, scene->objects[i])) {
+          hasIntersection = true;
+        }
+        break;
+      case CERCLE:
+        if (intersectCercle(ray, intersection, scene->objects[i])) {
           hasIntersection = true;
         }
         break;
@@ -364,7 +558,7 @@ color3 trace_ray(Scene * scene, Ray *ray, KdTree *tree) {
       }
     }
 
-    if (ray->depth < 8) {
+    if (ray->depth < NbRebond) {
       rr = normalize(reflect(ray->dir, intersection.normal)); // peut etre inverser les parametre pour voir
       //calcul du rayon secondaire
       vec3 newOrig = p+acne_eps*(rr);
@@ -373,15 +567,9 @@ color3 trace_ray(Scene * scene, Ray *ray, KdTree *tree) {
       cr = trace_ray(scene, &refRay, tree);
 
       //on verifie que le cr ne depasse pas 1, si c'est le cas on le ramene à 1 car trop de reflection sion
-      if (cr.x > 1) {
-        cr.x = 1;
-      }
-      if (cr.y > 1) {
-        cr.y = 1;
-      }
-      if (cr.z > 1) {
-        cr.z = 1;
-      }
+      if (cr.x > 1) cr.x = 1;
+      if (cr.y > 1) cr.y = 1;
+      if (cr.z > 1) cr.z = 1;
 
       vec3 h = normalize(v + rr);
       l = rr;
@@ -395,14 +583,79 @@ color3 trace_ray(Scene * scene, Ray *ray, KdTree *tree) {
   }
 }
 
+//pour tester le kdTree si besoin il n'y a pas d'erreur de compilation
+// color3 trace_ray(Scene * scene, Ray *ray, KdTree *tree) {
+//   color3 ret = color3(0,0,0);
+//   Intersection intersection;
+//   if (intersectKdTree(scene, tree, ray, &intersection) || intersectSceneAfterKdTree(scene, tree, ray, &intersection)) {
+//     // vec3 c = 0.5f*(intersection.normal)+0.5f;
+//     // ret = color3(c.x, c.y, c.z); //première coloration
+//     // return ret;
+//     vec3 l;
+//     vec3 rr;
+//     vec3 cr;
+//     Light * lgt;
+//     vec3 v = -(ray->dir);
+//     color3 lc;
+//     vec3 n = intersection.normal; //pourquoi essaie ici
+//     point3 p = intersection.position;
+//     Ray newRay;
+//     Ray refRay;
+//     size_t lightCount = scene->lights.size();
+//     for ( size_t i=0; i<lightCount; i++) {
+//       lgt = scene->lights[i];
+//       l = normalize(lgt->position-p);
+//       newRay.orig =  p+acne_eps*(l);
+//       newRay.dir = l;
+//       newRay.tmin = 0; // le min est à 0
+//       newRay.tmax = (lgt->position.x - p.x)/(newRay.dir).x; //nouveau max pour le rayon
+//       lc = lgt->color;
+//       Intersection interOmbre;
+//       if (!intersectKdTree(scene, tree, ray, &interOmbre)) {
+//         ret += shade(n, v, l, lc, intersection.mat);
+//       }
+//     }
+//
+//     if (ray->depth < NbRebond) {
+//       rr = normalize(reflect(ray->dir, intersection.normal)); // peut etre inverser les parametre pour voir
+//       //calcul du rayon secondaire
+//       vec3 newOrig = p+acne_eps*(rr);
+//       rayInit(&refRay, newOrig, rr, 0, 10000, ray->depth+1);
+//       //refRay.depth +=1; //on incremente le nombre de rebon
+//       cr = trace_ray(scene, &refRay, tree);
+//
+//       //on verifie que le cr ne depasse pas 1, si c'est le cas on le ramene à 1 car trop de reflection sion
+//       if (cr.x > 1) {
+//         cr.x = 1;
+//       }
+//       if (cr.y > 1) {
+//         cr.y = 1;
+//       }
+//       if (cr.z > 1) {
+//         cr.z = 1;
+//       }
+//
+//       vec3 h = normalize(v + rr);
+//       l = rr;
+//       float LdotH = dot(l, h);
+//       return ret+RDM_Fresnel(LdotH, 1.f, intersection.mat->IOR)*cr*intersection.mat->specularColor;
+//     }else {
+//       return color3(0,0,0);
+//     }
+//   }else {
+//     return scene->skyColor;
+//   }
+// }
+
 void renderImage(Image *img, Scene *scene) {
 
   //! This function is already operational, you might modify it for antialiasing and kdtree initializaion
   float aspect = 1.f/scene->cam.aspect;
 
   KdTree *tree =  NULL;
-
-
+  //decommenter si on veut utiliser le kdtree
+  // tree = initKdTree(scene);
+  // printf("feuille = %d \n", tree->root->leaf);
   //! \todo initialize KdTree
 
   float delta_y = 1.f / (img->height * 0.5f); //! one pixel size
@@ -425,28 +678,32 @@ void renderImage(Image *img, Scene *scene) {
 #pragma omp parallel for
     for(size_t i=0; i<img->width; i++) {
       color3 *ptr = getPixelPtr(img, i,j);
-      // vec3 ray_dir = scene->cam.center + ray_delta_x + ray_delta_y + float(i)*dx + float(j)*dy;
-
       vec3 centre = scene->cam.center + ray_delta_x + ray_delta_y;
-
-      // Ray rx;
-      // rayInit(&rx, scene->cam.position, normalize(ray_dir));
-
-      // *ptr += trace_ray(scene, &rx, tree);
-
-      *ptr += anti_aliasing(scene, tree, 1, dx, dy, centre, i, j);
+      *ptr += anti_aliasing(scene, tree, NbRayon, dx, dy, centre, i, j);
     }
   }
 }
 
-color3 anti_aliasing(Scene *scene, KdTree *tree, int n, vec3 dx, vec3 dy, vec3 centre, int i, int j) {
+//renvoie rand entre deux born
+float frand_a_b(float a, float b){
+    a = a*100.f;
+    b = b*100.f;
+    return ((rand()/(float)RAND_MAX ) * (b-a) + a)/100.f;
+}
 
+color3 anti_aliasing(Scene *scene, KdTree *tree, int n, vec3 dx, vec3 dy, vec3 centre, int i, int j) {
   Ray rx;
   vec3 ray_dir;
   color3 ptr;
 
   for (float k = -0.5f+(1.f/(2*n)); k < 0.5f; k += (1.f/n)) {
     for (float p = -0.5f+(1.f/(2*n)); p < 0.5f; p += (1.f/n)){
+      /*decommenter les ligne qui suivent pour l'antialiasing avec points aleatoire sur un interval*/
+      // float k1 = frand_a_b(k, k+(1.f/n));
+      // float p1 = frand_a_b(p, p+(1.f/n));
+      // ray_dir = centre + float(i+p1)*dx + float(j+k1)*dy;
+
+      //commenter cette ligne si vous utiliser l'anti_aliasing normal
       ray_dir = centre + float(i+p)*dx + float(j+k)*dy;
       rayInit(&rx, scene->cam.position, normalize(ray_dir));
       ptr += trace_ray(scene, &rx, tree);

@@ -7,5 +7,6 @@
 typedef struct s_kdtree KdTree;
 
 bool intersectKdTree(Scene *scene, KdTree *tree, Ray *ray, Intersection *intersection);
+bool intersectSceneAfterKdTree(Scene *scene, KdTree *tree, Ray *ray, Intersection *intersection);
 KdTree*  initKdTree(Scene *scene);
 #endif

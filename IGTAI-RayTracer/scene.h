@@ -16,13 +16,16 @@ typedef struct material_s {
   color3 diffuseColor;	//! Base color
 } Material;
 
-enum Etype {SPHERE=1, PLANE, TRIANGLE};
-
+enum Etype {SPHERE=1, PLANE, TRIANGLE, CYLINDRE, CERCLE};
+#define HMAX 10.f; // si hauteur cylindre == 0 on remplace la hauteur par ça
 
 //! create a new sphere structure
 Object* initSphere(point3 center, float radius, Material mat);
 Object* initPlane(vec3 normal, float d, Material mat);
 Object *initTriangle(point3 pointA, point3 pointB, point3 pointC, Material mat);
+Object *initCylindre(float r, float h, vec3 centre, int orientation, Material mat);
+Object *initCercle(float r, point3 centre, vec3 normal, Material mat);
+// Object * initCone(vec3 vecteur, point3 centre, float radius, float h, Material mat);
 //! release memory for the object obj
 void freeObject(Object *obj);
 

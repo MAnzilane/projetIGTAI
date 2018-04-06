@@ -2,6 +2,44 @@
 #include "scene_types.h"
 #include <string.h>
 #include <algorithm>
+// 
+// Object * initCone(vec3 vecteur, point3 centre, float radius, float h, Material mat) {
+//     Object *ret;
+//     ret = (Object *)malloc(sizeof(Object));
+//     ret->geom.type = CONE;
+//     ret->geom.cone.vecteur = vecteur;
+//     ret->geom.cone.centre = centre;
+//     ret->geom.cone.radius = radius;
+//     ret->geom.cone.h = h;
+//     memcpy(&(ret->mat), &mat, sizeof(Material));
+//     return ret;
+// }
+
+Object *initCercle(float r, point3 centre, vec3 normal, Material mat) {
+    Object *ret;
+    ret = (Object *)malloc(sizeof(Object));
+    ret->geom.type = CERCLE;
+    ret->geom.cercle.centre = centre;
+    ret->geom.cercle.normal = normal;
+    ret->geom.cercle.radius = r;
+    memcpy(&(ret->mat), &mat, sizeof(Material));
+    return ret;
+}
+Object *initCylindre(float r, float h, vec3 centre, int orientation, Material mat) {
+    Object *ret;
+    ret = (Object *)malloc(sizeof(Object));
+    ret->geom.type = CYLINDRE;
+    ret->geom.cylindre.radius = r;
+    if (h == 0) {// cylindre infini
+      ret->geom.cylindre.height = HMAX;
+    }else { //cylindre fini
+      ret->geom.cylindre.height = h;
+    }
+    ret->geom.cylindre.centre = centre;
+    ret->geom.cylindre.orientation = orientation;
+    memcpy(&(ret->mat), &mat, sizeof(Material));
+    return ret;
+}
 
 Object *initTriangle(point3 pointA, point3 pointB, point3 pointC, Material mat) {
     Object *ret;
@@ -9,7 +47,7 @@ Object *initTriangle(point3 pointA, point3 pointB, point3 pointC, Material mat) 
     ret->geom.type = TRIANGLE;
     ret->geom.triangle.pointA = pointA;
     ret->geom.triangle.pointB = pointB;
-    ret->geom.triangle.pointB = pointB;
+    ret->geom.triangle.pointC = pointC;
     memcpy(&(ret->mat), &mat, sizeof(Material));
     return ret;
 }

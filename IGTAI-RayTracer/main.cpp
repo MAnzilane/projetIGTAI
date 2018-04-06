@@ -7,10 +7,14 @@
 #include "scene.h"
 #include "raytracer.h"
 #include "image.h"
+#include "scene_types.h"
+#include <time.h>
 
 #define WIDTH 800
 #define HEIGHT 600
 
+// #define NbV 773//426//star 3276//43 //loup 547
+// #define NbF 1508//star 6516//22//loup 956
 /* nickel :
  mat.diffuseColor = color3(0.014, 0.012, 0.012);
  mat.specularColor  = color3(1.0, 0.882, 0.786);
@@ -82,7 +86,6 @@
 
 int split(char * coord) {
   char res[10];
-  // int i =0;
   for (size_t i = 0; i < strlen(coord); i++) {
     if (coord[i] != '/') {
       res[i] = coord[i];
@@ -94,7 +97,7 @@ int split(char * coord) {
   return atoi(res);
 }
 
-Object ** loueEnMaillage(const char * filename, Material mat, float miseAlEchelle){
+Object ** loupEnMaillage(const char * filename, Material mat, float miseAlEchelle, int NbF, int NbV){
     //ouverture du fichier de lecture
     FILE * fic = NULL;
     if ((fic = fopen(filename, "r")) == NULL) {
@@ -103,34 +106,87 @@ Object ** loueEnMaillage(const char * filename, Material mat, float miseAlEchell
     }
 
     //initilisation des object
-    Object ** ensObj = (Object **)malloc(sizeof(Object*)*956); //[956];
-    float tabCoord[547][3];
+    Object ** ensObj = (Object **)malloc(sizeof(Object*)*NbF); //[956];
+    // float tabCoord[NbV][3];
+    point3 tabCoord[NbV];
     char marque[40];
     char coord1[20], coord2[20], coord3[20];
-    //lecture des coordonnee
-    for (int i = 1; i < 547; i++) {
-      if(fscanf(fic, "%f %f %f", &tabCoord[i][0], &tabCoord[i][1], &tabCoord[i][2]) == 0) exit(EXIT_FAILURE);
-      // printf("%f %f %f \n", tabCoord[i][0], tabCoord[i][1], tabCoord[i][2]);
-    }
 
+    //lecture des coordonnee
+    for (int i = 1; i < NbV; i++) {
+      // if(fscanf(fic, "%s %s %s", coord1, coord2, coord3) == 0) exit(EXIT_FAILURE);
+      if(fscanf(fic, "%f %f %f", &tabCoord[i].x, &tabCoord[i].y, &tabCoord[i].z) == 0) exit(EXIT_FAILURE);
+      tabCoord[i].x = tabCoord[i].x/miseAlEchelle;
+      tabCoord[i].y = tabCoord[i].y/miseAlEchelle;
+      tabCoord[i].z = tabCoord[i].z/miseAlEchelle;
+    }
     if(fscanf(fic, "%s", marque) == 0) exit(EXIT_FAILURE);
-    // printf("marque %s\n", marque);
     point3 a, b, c;
     if (strcmp(marque, "#finCoordonnee") == 0) {
       // #pragma omp parallel for
-      for (size_t i = 0; i < 956; i++) {
+      for (int i = 0; i <NbF; i++) {
         if(fscanf(fic,"%s %s %s", coord1, coord2, coord3) == 0) exit(EXIT_FAILURE);
-        // printf("%d %d %d\n", split(coord1), split(coord2), split(coord3));
-        // printf("%f %f %f\n", tabCoord[split(coord1)][0], tabCoord[split(coord1)][1], tabCoord[split(coord1)][2]);
-        a = point3(tabCoord[split(coord1)][0]/miseAlEchelle, tabCoord[split(coord1)][1]/miseAlEchelle, tabCoord[split(coord1)][2]/miseAlEchelle);
-        b = point3(tabCoord[split(coord2)][0]/miseAlEchelle, tabCoord[split(coord2)][1]/miseAlEchelle, tabCoord[split(coord2)][2]/miseAlEchelle);
-        c = point3(tabCoord[split(coord3)][0]/miseAlEchelle, tabCoord[split(coord3)][1]/miseAlEchelle, tabCoord[split(coord3)][2]/miseAlEchelle);
-        ensObj[i] = initTriangle(a, b, c, mat);
-        // printf("%f\n",a.x);
+        a = tabCoord[split(coord1)];
+        b = tabCoord[split(coord2)];
+        c = tabCoord[split(coord3)];
+        ensObj[i] = initTriangle(b, a, c, mat);
       }
     }
+    // printf("fin de lecture du fichier\n");
     fclose(fic);
     return ensObj;
+}
+
+void insererUnObjetEnMaillage(Scene *scene, const char * filename, int nombreDeFace, int nombreDePoint, float miseAlEchelle, Material mat) {
+  Object **obj = loupEnMaillage(filename, mat, miseAlEchelle, nombreDeFace, nombreDePoint);
+  for (int i = 0; i < nombreDeFace; i++) {
+    addObject(scene, obj[i]);
+  }
+}
+//quadrilataire
+void addQuadrilatair(Scene * scene, point3 A, point3 B, point3 C, point3 position, Material mat1, Material mat2) {
+  addObject(scene, initTriangle(A, B, C, mat1));
+  point3 mil = point3((A.x+B.x)/2, (A.y+B.y)/2, (A.z+B.z)/2); //x1+x2/2 ...
+  point3 D = point3(2*mil.x-C.x, 2*mil.y-C.y, 2*mil.z-C.z); //2*m1-x3 ...
+  addObject(scene, initTriangle(A, B, D, mat2));
+}
+
+
+
+//ajoute un cylindre en fonction de son orientation
+void addCylinder(Scene * scene, float r, float h, point3 centre, int orientation, Material mat) {
+  addObject(scene, initCylindre(r, h, centre, orientation, mat));
+  switch (orientation) {
+    case 0:
+      addObject(scene, initCercle(r, centre, vec3(0, 1, 0), mat)); //base inferieur
+      addObject(scene, initCercle(r, point3(centre.x, centre.y+h, centre.z), vec3(0, 1, 0), mat)); // base superieur
+      break;
+    case 1:
+      addObject(scene, initCercle(r, centre, vec3(1, 0, 0), mat)); //base inferieur
+      addObject(scene, initCercle(r, point3(centre.x+h, centre.y, centre.z), vec3(1, 0, 0), mat)); // base superieur
+      break;
+    case 2:
+      addObject(scene, initCercle(r, centre, vec3(0, 0, 1), mat)); //base inferieur
+      addObject(scene, initCercle(r, point3(centre.x, centre.y, centre.z+h), vec3(0, 0, 1), mat)); // base superieur
+      break;
+  }
+
+}
+
+void addPyramide(Scene* scene, point3 a, point3 b, point3 c, point3 f, point3 i, Material mat) {
+  point3 d = a;  point3 j = a;
+  point3 e = c;  point3 k = i;
+  point3 g = a;  point3 l = b;
+  point3 m = b;  point3 n = c;
+  point3 o = i;  point3 p = c;
+  point3 q = f;  point3 h = f;
+  point3 r = f;
+  addObject(scene, initTriangle(a, b, c, mat));
+  addObject(scene, initTriangle(d, e, f, mat));
+  addObject(scene, initTriangle(g, h, i, mat));
+  addObject(scene, initTriangle(j, k, l, mat));
+  addObject(scene, initTriangle(m, n, o, mat));
+  addObject(scene, initTriangle(p, q, r, mat));
 }
 
 Scene * initScene0() {
@@ -326,135 +382,107 @@ Scene* initScene3(){
 
 Scene* initScene5(){
   Scene *scene = initScene();
-  setCamera(scene, point3(3,1,0), vec3(0,0.3,0), vec3(0,1,0), 60, (float)WIDTH/(float)HEIGHT);
+  setCamera(scene, point3(3,1,0), vec3(-1, 0.6, 0), vec3(0,1,0), 60, (float)WIDTH/(float)HEIGHT);
   setSkyColor(scene, color3(0.1f, 0.3f, 0.5f));
   Material mat;
   mat.IOR = 1.3;
   mat.roughness = 0.1;
   mat.specularColor = color3(0.5f);
-
   mat.diffuseColor = color3(.5f);
-  // addObject( scene, initSphere(point3(0,0, 0),0.25, mat));
-
-
   mat.diffuseColor = color3(0.5f, 0.f, 0.f);
-  // addObject( scene, initSphere(point3(1,0, 0),.25, mat));
-  point3 a, b, c;
-  // a = point3(21.143898/500, 147.448031/500, 14.745709/500);
-  // b = point3(5.974213/500, 131.727165/500, 123.902559/500);
-  // c = point3(12.127831/500, 97.344388/500, -33.011476/500);
-  Object **obj = loueEnMaillage("loue.txt", mat, 300);
-  printf("ensemble d'objects créés\n");
-  // int t = 0;
-  // scanf("%d", &t);
-  // #pragma omp parallel for
-  for (size_t i = 0; i < 956; i++) {
-    addObject(scene, obj[i]);
-  }
-  // addObject(scene, initTriangle(a, b, c, mat));
-
-  // mat.diffuseColor = color3(0.f, 0.5f, 0.5f);
-  // addObject( scene, initSphere(point3(0,1, 0),.25, mat));
-  //
-  // mat.diffuseColor = color3(0.f, 0.f, 0.5f);
-  // addObject( scene, initSphere(point3(0,0,1),.25, mat));
-
-
-  mat.diffuseColor  = color3(0.6f);
-  addObject(scene, initPlane(vec3(0,1,0), 0, mat));
-
-  addLight(scene, initLight(point3(10, 10,10), color3(1,1,1)));
-  addLight(scene, initLight(point3(4, 10,-2), color3(1,1,1)));
-
-  return scene;
-}
-
-Scene* initScene4() {
-  Scene *scene = initScene();
-  setCamera(scene, point3(4.5,.8,4.5), vec3(0,0.3,0), vec3(0,1,0), 60, (float)WIDTH/(float)HEIGHT);
-  setSkyColor(scene, color3(0.2, 0.2, 0.7));
-  Material mat;
-  mat.diffuseColor = color3(0.301, 0.034, 0.039);
-  mat.specularColor  = color3(1.0, 0.992, 0.98);
-  mat.IOR = 1.1382;
-  mat.roughness = 0.0886;
-
-  addLight(scene, initLight(point3(0, 1.7, 1), .5f*color3(3,3,3)));
-  addLight(scene, initLight(point3(3, 2, 3),   .5f*color3(4, 4, 4)));
-  addLight(scene, initLight(point3(4,3,-1),    .5f*color3(5, 5, 5)));
-
-
-  mat.IOR = 1.3;
-  mat.roughness = 0.1;
-  mat.specularColor = color3(0.5f);
-
-  // mat.diffuseColor = color3(.5f);
-  mat.diffuseColor = color3(.5,0.09,.07);
-
-
-  mat.diffuseColor = color3(0.014, 0.012, 0.012);
-  mat.specularColor  = color3(0.7, 0.882, 0.786);
-  mat.IOR = 6;
-  mat.roughness = 0.0181;
-  addObject( scene, initSphere(point3(0, 0.1, 0),.3, mat));
-  addObject( scene, initSphere(point3(0, 1, 0),.3, mat));
-  addObject( scene, initSphere(point3(1, 1, -1),.3, mat));
-
-  mat.diffuseColor = color3(0.26, 0.036, 0.014);
-  mat.specularColor  = color3(1.0, 0.852, 1.172);
-  mat.IOR = 3;
-  mat.roughness = 0.01589;
-  addObject(scene, initTriangle(point3(-1, 1, -0.5), point3(-0.4, 0.5, 1), point3(1, -1, 0), mat));
-  addObject(scene, initTriangle(point3(0, 1, 0), point3(1, 1, -1), point3(0, 0.1, 0), mat));
-
-  // addObject( scene, initSphere(point3(1,-.05,0),.15, mat));
-  //
-  // mat.diffuseColor = color3(0.014, 0.012, 0.012);
-  // mat.specularColor  = color3(0.7, 0.882, 0.786);
-  // mat.IOR = 3;
-  // mat.roughness = 0.00181;
-  // addObject( scene, initSphere(point3(3,0.05,2),.25, mat));
-  //
-  // mat.diffuseColor = color3(0.46, 0.136, 0.114);
-  // mat.specularColor  = color3(0.8, 0.852, 0.8172);
-  // mat.IOR = 1.5771;
-  // mat.roughness = 0.01589;
-  // addObject( scene, initSphere(point3(1.3,0.,2.6),0.215, mat));
-  //
-  // mat.diffuseColor = color3(0.06, 0.26, 0.22);
-  // mat.specularColor  = color3(0.70, 0.739, 0.721);
-  // mat.IOR = 1.3051;
-  // mat.roughness = 0.567;
-  // addObject( scene, initSphere(point3(1.9,0.05,2.2),.25, mat));
-  //
-  // mat.diffuseColor = color3(0.012,0.036,0.406);
-  // mat.specularColor  = color3(1.0, 0.965, 1.07);
-  // mat.IOR = 1.1153;
-  // mat.roughness = 0.068;
-  // mat.roughness = 0.18;
-  // addObject( scene, initSphere(point3(0,0,1),.20, mat));
-
-  mat.diffuseColor = color3(.2,0.4,.3);
-  mat.specularColor = color3(.2,0.2,.2);
-  mat.IOR = 1.382;
-  mat.roughness = 0.05886;
-  addObject(scene, initPlane(vec3(0,1,0),0.2, mat));
-
-  mat.diffuseColor = color3(.5,0.09,.07);
-  mat.specularColor = color3(.2,.2,.1);
-  mat.IOR = 1.8382;
-  mat.roughness = 0.886;
-  addObject(scene, initPlane(vec3(1, 0.0, -1.0), 2, mat));
-
+  addCylinder(scene, 0.1, 0.5, point3(0.5, 0.5, 0.2), 1, mat);
+  addCylinder(scene, 0.1, 0.5, point3(0.5, 0.5, 0.2), 2, mat);
+  addCylinder(scene, 0.1, 0.5, point3(0.5, 0.5, 0.2), 0, mat);
+  addCylinder(scene, 0.1, 0.5, point3(0.5, 0.5, -0.2-0.1), 2, mat);
+  addCylinder(scene, 0.1, 0.5, point3(0.5, 0, 0.2), 0, mat);
+  addObject( scene, initSphere(point3(0.5, 1, 0.2),.2, mat));
+  addObject( scene, initSphere(point3(0.5, 0.5, 0.2),.2, mat));
+  addObject( scene, initSphere(point3(0.5, 0.5, -0.3),.1, mat));
+  addObject( scene, initSphere(point3(0.5, 0.5, 0.7),.1, mat));
+  addObject( scene, initSphere(point3(1, 0.5, 0.2),.05, mat));
+  addObject(scene, initCercle(.4, point3(0.5, 0.5, 0.2), point3(0, 1, 0), mat));
+  addCylinder(scene, 0.1, 0.5, point3(-3, 0.5, -3), 2, mat);
+  addCylinder(scene, 0.1, 0.5, point3(-3, 0.6, -3), 2, mat);
+  addCylinder(scene, 0.1, 0.5, point3(-3, 0.7, -3), 2, mat);
+  addCylinder(scene, 0.1, 0.5, point3(-3, 0.8, -3), 2, mat);
+  mat.diffuseColor  = color3(0.8f);
+  addObject(scene, initCercle(.4, point3(-2, 0.9, -2), point3(0, 0.3, 1), mat));
 
   mat.diffuseColor = color3(0.1,0.3,.05);
   mat.specularColor = color3(.5,.5,.5);
   mat.IOR = 1.9382;
   mat.roughness = 0.0886;
-  addObject(scene, initPlane(vec3(0.3,-0.2, 1), 4, mat));
+  addObject(scene, initPlane(vec3(0,1,0), 0, mat));
+
+  mat.diffuseColor = color3(.2,0.4,.3);
+  mat.specularColor = color3(.2,0.2,.2);
+  mat.IOR = 2.382;
+  mat.roughness = 0.5886;
+  addObject(scene, initPlane(vec3(0,0,1), 3, mat));
+
+  addLight(scene, initLight(point3(4, 10,-2), color3(1,1,1)));
+  addLight(scene, initLight(point3(10, 10,10), color3(1,1,1)));
+  addLight(scene, initLight(point3(20, 40,5), color3(1,1,1)));
   return scene;
 }
+
+Scene* initScene6() {
+  Scene *scene = initScene();
+  // setCamera(scene, point3(2,1, 7), vec3(1, 0.6, .6), vec3(0,1,0), 60, (float)WIDTH/(float)HEIGHT);
+  setCamera(scene, point3(3,1,0), vec3(0,0.3,0), vec3(0,1,0), 60, (float)WIDTH/(float)HEIGHT);
+  setSkyColor(scene, color3(0.1f, 0.3f, 0.5f));
+  Material mat;
+  mat.diffuseColor = color3(0.301, 0.034, 0.039);
+  mat.specularColor  = color3(1.0, 0.992, 0.98);
+  mat.IOR = 1.1382;
+  mat.roughness = 0.0886;;
+
+  insererUnObjetEnMaillage(scene, "loup.txt" , 957, 547, 200, mat);
+
+  mat.diffuseColor  = color3(0.6f);
+  addObject(scene, initPlane(vec3(0,1,0), 0, mat));
+  addLight(scene, initLight(point3(40, 100,-20), color3(1,1,1)));
+  addLight(scene, initLight(point3(100, 100,100), color3(1,1,1)));
+  addLight(scene, initLight(point3(200, 400,50), color3(1,1,1)));
+  return scene;
+}
+
+Scene * initScene4() {
+
+    Scene *scene = initScene();
+    // setCamera(scene, point3(3,0,0), vec3(0,0.3,0), vec3(0,1,0), 70, (float)WIDTH/(float)HEIGHT);
+    setCamera(scene, point3(2,1, 7), vec3(1, 0.5, 0), vec3(0,1,0), 60, (float)WIDTH/(float)HEIGHT);
+	   setSkyColor(scene, color3(0.2, 0.2, 0.7));
+
+    Material mat;
+    mat.IOR = 1.12;
+    mat.roughness = 0.2;
+    mat.specularColor = color3(0.4f);
+    mat.diffuseColor  = color3(0.6f);
+
+    insererUnObjetEnMaillage(scene, "../Data/storne.txt" , 6516, 3276, 200, mat);
+
+
+    mat.diffuseColor = color3(0.014, 0.012, 0.012);
+    mat.specularColor  = color3(1.0, 0.882, 0.786);
+    mat.IOR = 2.4449;
+    mat.roughness = 0.0681;
+    addObject( scene, initSphere(point3(-3.f, 1.f, 0.f),2., mat));
+
+    mat.diffuseColor = color3(0.016, 0.073, 0.04);
+    mat.specularColor  = color3(1.0, 1.056, 1.146);
+    mat.IOR = 1.1481;
+    mat.roughness = 0.0625;
+    addObject(scene, initPlane(vec3(0,1,0), +1, mat));
+
+    addLight(scene, initLight(point3(10, 10,10), color3(10,10,10)));
+    addLight(scene, initLight(point3(4, 10,-2), color3(5,3,10)));
+    return scene;
+}
+
+
 int main(int argc, char *argv[]) {
+    srand(time(NULL));
     printf("Welcom to the L3 IGTAI RayTracer project\n");
 
     char basename[256];
